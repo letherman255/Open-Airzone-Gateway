@@ -43,3 +43,19 @@ pub fn parse_manifest(text: &str, manifest_url: &str) -> Option<UpdateInfo> {
     };
     Some(UpdateInfo { version, url })
 }
+
+/// Smallest and largest firmware image accepted (a tiny size would make the OTA begin erase the rollback slot).
+pub const MIN_IMAGE: usize = 64 * 1024;
+pub const MAX_IMAGE: usize = 0x400000;
+
+/// Checks an incoming firmware image from its announced size and first byte (ESP app images start with 0xE9).
+pub fn check_image(size: Option<usize>, first_byte: u8) -> Result<(), &'static str> {
+    match size {
+        Some(s) if (MIN_IMAGE..=MAX_IMAGE).contains(&s) => {}
+        _ => return Err("size missing or out of range"),
+    }
+    if first_byte != 0xE9 {
+        return Err("not an ESP app image");
+    }
+    Ok(())
+}

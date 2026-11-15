@@ -24,3 +24,12 @@ fn update_version_compare() {
     assert!(!newer("0.4.0", "garbage"));
     assert!(!newer("0.4.0", "0.4.0-rc1"));
 }
+
+#[test]
+fn image_check() {
+    assert_eq!(check_image(Some(MIN_IMAGE), 0xE9), Ok(()));
+    assert!(check_image(None, 0xE9).is_err());
+    assert!(check_image(Some(MAX_IMAGE + 1), 0xE9).is_err());
+    assert!(check_image(Some(MIN_IMAGE - 1), 0xE9).is_err());
+    assert_eq!(check_image(Some(MIN_IMAGE), b'<'), Err("not an ESP app image"));
+}

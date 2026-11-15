@@ -96,3 +96,10 @@ def test_gwctl_restore_reports_skips(server, tmp_path):
                              "entries": [{"id": "zone.antifreeze", "system": 1, "zone": 9, "value": True}]}))
     r = run(host, "restore", str(f), token=token)
     assert r.returncode == 1, r.stdout + r.stderr
+
+
+def test_gwctl_update_reports_state(server):
+    host, _ = server
+    r = run(host, "update")
+    assert r.returncode == 0, r.stderr
+    assert "up to date" in r.stdout

@@ -91,6 +91,7 @@ fn info(g: &Gateway) -> String {
         ("listen_dropped", i.listen_dropped.to_string()),
         ("latest_version", i.latest_version.as_deref().map(js).unwrap_or_else(|| "null".into())),
         ("latest_url", i.latest_url.as_deref().map(js).unwrap_or_else(|| "null".into())),
+        ("update_state", js(&i.update_state)),
         ("reset_reason", js(&i.reset_reason)),
         ("free_heap", i.free_heap.to_string()),
         ("min_free_heap", i.min_free_heap.to_string()),
@@ -567,7 +568,7 @@ pub fn handle(g: &mut Gateway, r: &ApiRequest, now_ms: u64, random: [u8; 32]) ->
     if !authed {
         let known = matches!(
             parts.first().copied(),
-            Some("params" | "writes" | "journal" | "settings" | "diagnostics" | "tokens" | "dev" | "raw" | "registry" | "mode" | "rediscover" | "restart" | "logout" | "backup" | "restore" | "log")
+            Some("params" | "writes" | "journal" | "settings" | "diagnostics" | "tokens" | "dev" | "raw" | "registry" | "mode" | "rediscover" | "restart" | "update" | "logout" | "backup" | "restore" | "log")
         );
         return if known { error(401, "authentication required") } else { error(404, "not found") };
     }
@@ -674,6 +675,21 @@ pub fn handle(g: &mut Gateway, r: &ApiRequest, now_ms: u64, random: [u8; 32]) ->
         ("POST", ["rediscover"]) => {
             g.actions.push(Action::Rediscover);
             ok(obj(&[("rediscover", "true".into())]))
+        }
+        ("POST", ["update", "install"]) => {
+            let st = g.info.update_state.as_str();
+            if st.starts_with("downloading") || st == "installing" || st == "restarting" {
+                return error(409, "update already in progress");
+            }
+            let (Some(version), Some(url)) = (g.info.latest_version.clone(), g.info.latest_url.clone()) else {
+                return error(409, "no update available");
+            };
+            if !url.starts_with("https://") {
+                return error(400, "update URL must be https");
+            }
+            g.info.update_state = "downloading 0%".into();
+            g.actions.push(Action::InstallUpdate { version: version.clone(), url });
+            status(202, obj(&[("installing", js(&version))]))
         }
         ("POST", ["restart"]) => {
             g.actions.push(Action::Restart);

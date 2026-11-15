@@ -32,6 +32,8 @@ pub struct GatewayInfo {
     /// Newer release found in the update manifest (offered, never installed automatically).
     pub latest_version: Option<String>,
     pub latest_url: Option<String>,
+    /// One-click install progress: empty when idle, else `downloading 37%`, `installing`, `restarting` or `failed: <reason>`.
+    pub update_state: String,
     /// Why the board last restarted (power on, panic, watchdog, brownout…).
     pub reset_reason: String,
     pub free_heap: u32,
@@ -45,11 +47,13 @@ pub struct GatewayInfo {
     pub write_failures: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     SaveSettings,
     Restart,
     Rediscover,
+    /// Download the image at `url` (https) and flash it, then restart.
+    InstallUpdate { version: String, url: String },
 }
 
 /// What the journal needs to know about one request of a queued write.

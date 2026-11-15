@@ -491,3 +491,69 @@ fn large_restore_keeps_every_queued_write() {
     let Value::Arr(j) = call(&mut g, "GET", "/api/v1/journal", "", Some(&t)).1 else { panic!() };
     assert_eq!(j.len(), 1, "the first write was journaled");
 }
+
+fn with_update(url: Option<&str>) -> Gateway {
+    let mut g = gateway(Mode::Listen);
+    g.info.latest_version = url.map(|_| "0.4.0".to_string());
+    g.info.latest_url = url.map(String::from);
+    g
+}
+
+#[test]
+fn install_update_without_token_401() {
+    let mut g = with_update(Some("https://example.org/a.bin"));
+    let (st, _) = call(&mut g, "POST", "/api/v1/update/install", "", None);
+    assert_eq!(st, 401);
+    assert_eq!(g.info.update_state, "");
+    assert!(g.actions.is_empty());
+}
+
+#[test]
+fn install_update_none_409() {
+    let mut g = with_update(None);
+    let t = login(&mut g);
+    let (st, v) = call(&mut g, "POST", "/api/v1/update/install", "", Some(&t));
+    assert_eq!(st, 409);
+    assert_eq!(v.get("error").unwrap().as_str(), Some("no update available"));
+}
+
+#[test]
+fn install_update_http_url_400() {
+    let mut g = with_update(Some("http://example.org/a.bin"));
+    let t = login(&mut g);
+    g.actions.clear();
+    let (st, v) = call(&mut g, "POST", "/api/v1/update/install", "", Some(&t));
+    assert_eq!(st, 400);
+    assert_eq!(v.get("error").unwrap().as_str(), Some("update URL must be https"));
+    assert!(g.actions.is_empty());
+}
+
+#[test]
+fn install_update_accepts_202_then_busy_409() {
+    let mut g = with_update(Some("https://example.org/a.bin"));
+    let t = login(&mut g);
+    g.actions.clear();
+    let (st, v) = call(&mut g, "POST", "/api/v1/update/install", "", Some(&t));
+    assert_eq!(st, 202);
+    assert_eq!(v.get("installing").unwrap().as_str(), Some("0.4.0"));
+    assert_eq!(g.info.update_state, "downloading 0%");
+    let (st, v) = call(&mut g, "POST", "/api/v1/update/install", "", Some(&t));
+    assert_eq!(st, 409);
+    assert_eq!(v.get("error").unwrap().as_str(), Some("update already in progress"));
+    let n = g.actions.iter().filter(|a| matches!(a, Action::InstallUpdate { .. })).count();
+    assert_eq!(n, 1);
+    assert!(g.actions.contains(&Action::InstallUpdate { version: "0.4.0".into(), url: "https://example.org/a.bin".into() }));
+    for s in ["installing", "restarting", "downloading 50%"] {
+        g.info.update_state = s.into();
+        assert_eq!(call(&mut g, "POST", "/api/v1/update/install", "", Some(&t)).0, 409);
+    }
+    g.info.update_state = "failed: x".into();
+    assert_eq!(call(&mut g, "POST", "/api/v1/update/install", "", Some(&t)).0, 202);
+}
+
+#[test]
+fn info_has_update_state() {
+    let mut g = gateway(Mode::Listen);
+    let (_, v) = call(&mut g, "GET", "/api/v1/info", "", None);
+    assert_eq!(v.get("update_state").unwrap().as_str(), Some(""));
+}

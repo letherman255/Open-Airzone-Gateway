@@ -40,6 +40,7 @@ ROUTES = [
     ("get", "/registry", "dev", "Every known register of every central"),
     ("get", "/raw/{addr}/{reg}", "dev", "Raw registers (query: count)"),
     ("post", "/raw/write", "dev", "Raw write (body: addr, reg, value | and, or, confirm); dangerous bits need the confirmation; master mode only"),
+    ("post", "/update/install", "token", "Download and install the release found by the update check; the gateway restarts on it"),
     ("post", "/ota", "token", "Firmware upload (raw image body); the gateway restarts on the new image"),
     ("post", "/ota/confirm", "token", "Confirm the new image after an upload (otherwise it rolls back after 180 s)"),
     ("get", "/ws", "public", "WebSocket every 2 s: values (device states), events (new gateway events), and in developer mode frames (bus frames) and registers (changed registers)"),

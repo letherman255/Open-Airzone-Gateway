@@ -25,10 +25,18 @@ curl -s -H "Authorization: Bearer TOKEN" http://GATEWAY/api/v1/writes/7
   registers the client.
 - TCP port 7000 streams every bus frame as text (`<t_us> <len> <hex>` lines), for recordings.
 
+## Installing an update
+
+`GET /info` shows `latest_version`, `latest_url` and `update_state` (empty when idle, otherwise
+`downloading 37%`, `installing`, `restarting` or `failed: <reason>`). `POST /api/v1/update/install`
+(admin token) installs the release found by the update check: 202 `{"installing": "<version>"}`, 409
+when there is no update or one is already running, 400 when the image URL is not HTTPS. Never automatic
+and not available over MQTT.
+
 ## Command line
 
 `tools/gwctl.py` (Python standard library) wraps the API: `info`, `login`, `get`, `set` (waits for the
-result), `raw`, `watch` (WebSocket messages), `backup`, `restore`, `ota`. Token from `--token`,
+result), `raw`, `watch` (WebSocket messages), `backup`, `restore`, `update [--install]` (shows the available release; `--install` downloads and flashes it, then waits), `ota`. Token from `--token`,
 `--token-file` or `GWCTL_TOKEN`; exit status 1 on any API error.
 
 ```sh

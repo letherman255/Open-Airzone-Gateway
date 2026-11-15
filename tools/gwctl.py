@@ -150,6 +150,8 @@ def main(argv=None):
     p = sub.add_parser("restore")
     p.add_argument("file")
     p.add_argument("--confirm", default="")
+    p = sub.add_parser("update")
+    p.add_argument("--install", action="store_true")
     p = sub.add_parser("ota")
     p.add_argument("image")
     a = ap.parse_args(argv)
@@ -197,6 +199,24 @@ def main(argv=None):
             if failed:
                 print(f"error: {failed} setting(s) not restored", file=sys.stderr)
                 return 1
+        elif a.cmd == "update":
+            info = c.call("GET", "info")
+            latest = info.get("latest_version")
+            print(f"latest_version: {latest}" if latest else "up to date")
+            print(f"update_state: {info.get('update_state') or 'idle'}")
+            if a.install:
+                print(json.dumps(c.call("POST", "update/install", {})))
+                while True:
+                    time.sleep(2)
+                    try:
+                        state = c.call("GET", "info").get("update_state", "")
+                    except ApiError:
+                        state = "restarting"
+                    print(f"update_state: {state or 'idle'}", flush=True)
+                    if state == "" or state == "restarting" or state.startswith("failed"):
+                        break
+                if state.startswith("failed"):
+                    raise ApiError(state)
         elif a.cmd == "ota":
             img = open(a.image, "rb").read()
             if not img or img[0] != 0xE9:

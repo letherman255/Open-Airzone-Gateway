@@ -323,6 +323,15 @@ paths:
       responses:
         '200':
           description: OK
+  /update/install:
+    post:
+      summary: "Download and install the release found by the update check; the gateway restarts on it"
+      description: "Bearer token (session or API token)."
+      security:
+        - bearer: []
+      responses:
+        '200':
+          description: OK
   /ota:
     post:
       summary: "Firmware upload (raw image body); the gateway restarts on the new image"
