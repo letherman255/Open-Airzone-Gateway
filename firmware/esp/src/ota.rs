@@ -52,15 +52,22 @@ pub const SELF_CONFIRM_S: u64 = 60;
 /// One-click updates: an image the gateway installed itself (NVS `self_update`) confirms itself once
 /// Wi-Fi has an IP and SELF_CONFIRM_S have passed since boot. Without Wi-Fi it never confirms, so the
 /// guard resets after OTA_CONFIRM_S and the bootloader rolls back. A flag left on a confirmed image
-/// (rollback, or an install that never booted) is cleared.
-pub fn self_confirm(store: Arc<Mutex<Store>>) -> Result<()> {
+/// (rollback, or an install that never booted) is cleared; a rollback is returned so that main can show it.
+pub fn self_confirm(store: Arc<Mutex<Store>>) -> Result<Option<RolledBack>> {
     if !store.lock().unwrap().self_update() {
-        return Ok(());
+        return Ok(None);
     }
     if !pending_verify() {
-        log::info!("self_update flag on a confirmed image: cleared");
-        store.lock().unwrap().set_self_update(false)?;
-        return Ok(());
+        let rb = rolled_back();
+        match &rb {
+            Some(r) => log::warn!("self-installed image {} did not start: rolled back", r.version),
+            None => log::info!("self_update flag on a confirmed image (install never booted): cleared"),
+        }
+        // cleared either way, so the message is shown once, not after every restart
+        if let Err(e) = store.lock().unwrap().set_self_update(false) {
+            log::error!("self_update flag not cleared: {e}");
+        }
+        return Ok(rb);
     }
     log::warn!("self-installed image: confirms itself after {SELF_CONFIRM_S} s with Wi-Fi");
     std::thread::Builder::new().name("self-confirm".into()).stack_size(4 * 1024).spawn(move || loop {
@@ -79,7 +86,35 @@ pub fn self_confirm(store: Arc<Mutex<Store>>) -> Result<()> {
         }
         return;
     })?;
-    Ok(())
+    Ok(None)
+}
+
+/// A self-installed image the bootloader rolled back (its version, from the image header; may be empty).
+pub struct RolledBack {
+    pub version: String,
+}
+
+/// The bootloader marks a pending image that reset before confirming as ABORTED (INVALID when the app
+/// rejects itself) and boots the previous one. `esp_ota_get_last_invalid_partition` returns that slot only
+/// if its otadata entry is INVALID/ABORTED and the image in it still validates, so an install interrupted
+/// while writing (slot erased or half written, no new otadata entry) is not taken for a rollback.
+fn rolled_back() -> Option<RolledBack> {
+    unsafe {
+        let bad = sys::esp_ota_get_last_invalid_partition();
+        let running = sys::esp_ota_get_running_partition();
+        if bad.is_null() || running.is_null() || (*bad).address == (*running).address {
+            return None;
+        }
+        let mut d: sys::esp_app_desc_t = core::mem::zeroed();
+        let version = if sys::esp_ota_get_partition_description(bad, &mut d) == sys::ESP_OK {
+            let v = &d.version;
+            let end = v.iter().position(|c| *c == 0).unwrap_or(v.len());
+            String::from_utf8_lossy(&v[..end].iter().map(|c| *c as u8).collect::<Vec<u8>>()).into_owned()
+        } else {
+            String::new()
+        };
+        Some(RolledBack { version })
+    }
 }
 
 fn wifi_has_ip() -> bool {

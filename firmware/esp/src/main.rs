@@ -252,9 +252,13 @@ fn run() -> Result<()> {
 
     let nvs = EspDefaultNvsPartition::take()?;
     let store = Arc::new(Mutex::new(nvs_store::Store::open(nvs.clone())?));
-    if let Err(e) = ota::self_confirm(store.clone()) {
-        log::error!("self-confirm not started: {e}");
-    }
+    let rolled_back = match ota::self_confirm(store.clone()) {
+        Ok(rb) => rb,
+        Err(e) => {
+            log::error!("self-confirm not started: {e}");
+            None
+        }
+    };
     let settings = store.lock().unwrap().load(&build_defaults());
     let want_master = cfg!(feature = "master") && settings.mode == Mode::Master;
     log::info!("settings: mode={:?} (master built in: {}) mqtt={} wifi={}", settings.mode, cfg!(feature = "master"), !settings.mqtt_url.is_empty(), !settings.wifi_ssid.is_empty());
@@ -270,7 +274,13 @@ fn run() -> Result<()> {
         master_capable: cfg!(feature = "master"),
         ..Default::default()
     };
-    let gw = Gateway::new(settings.clone(), Registry::default(), Topology::default(), info, CATALOGUE);
+    let mut gw = Gateway::new(settings.clone(), Registry::default(), Topology::default(), info, CATALOGUE);
+    if let Some(rb) = rolled_back {
+        // the page shows `failed: …` with a retry; without this the old version would come back silently
+        gw.info.update_state = format!("failed: the new firmware did not start, back on {VERSION}");
+        let what = if rb.version.is_empty() { "update".to_string() } else { format!("update {}", rb.version) };
+        gw.push_event("update", &format!("{what} did not start: rolled back to {VERSION}"));
+    }
     let shared = Arc::new(Shared {
         listener: Mutex::new(Listener::default()),
         topology: Mutex::new(Topology::default()),
