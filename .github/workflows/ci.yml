@@ -47,6 +47,7 @@ jobs:
         if: matrix.site
         run: |
           curl -fsSL -o espflash.zip https://github.com/esp-rs/espflash/releases/download/v4.0.1/espflash-x86_64-unknown-linux-gnu.zip
+          mkdir -p "$HOME/.local/bin"
           unzip -o espflash.zip -d "$HOME/.local/bin"
           chmod +x "$HOME/.local/bin/espflash"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
