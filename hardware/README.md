@@ -23,6 +23,7 @@ standard 5-position 3.81 mm screw plug fits the central's header, so no solderin
 | Screw plug, female, 5 pos., 3.81 mm | MC 1,5/5-ST-3,81 (1803604) | 651-1803604 | plugs onto the central's header |
 | Screw plug, male (inverted), 5 pos., 3.81 mm | IMC 1,5/5-ST-3,81 (1857919) | 651-1857919 | only to keep the stock webserver stacked on the bus (listen mode) |
 | Waveshare ESP32-S3-RS485-CAN | — | — | the gateway |
+| USB-C data cable | — | — | flashing only (charge-only cables carry no data); never plugged while on the bus |
 | Stranded wire 0.25-0.5 mm², 4 colours | — | — | |
 
 Master mode (the gateway replaces the webserver): one MC plug on the central's header, four wires to the

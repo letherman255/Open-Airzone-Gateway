@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 640" width="1280" height="640" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif">
+  <title>Open Airzone Gateway social preview</title>
+  <!-- Source of social-preview.png: render with headless Edge at 1280x640 (hero.svg next to this file). -->
+  <rect width="1280" height="640" fill="#14213d"/>
+  <text x="64" y="84" font-size="48" font-weight="800" fill="#ffffff">Open Airzone Gateway</text>
+  <text x="64" y="124" font-size="24" fill="#c9d3e3">Local, cloud-free control of Airzone HVAC zoning from Home Assistant</text>
+  <image href="hero.svg" xlink:href="hero.svg" x="232" y="152" width="944" height="472"/>
+  <g transform="translate(64 200)" font-size="22" fill="#ffffff" font-weight="700">
+    <text y="0">≈ €30-40</text>
+    <text y="26" font-size="16" font-weight="400" fill="#c9d3e3">of hardware</text>
+    <text y="96">4 wires</text>
+    <text y="122" font-size="16" font-weight="400" fill="#c9d3e3">no soldering</text>
+    <text y="192">0 €/year</text>
+    <text y="218" font-size="16" font-weight="400" fill="#c9d3e3">no account</text>
+    <text y="288">Open</text>
+    <text y="314" font-size="16" font-weight="400" fill="#c9d3e3">MIT firmware</text>
+  </g>
+</svg>

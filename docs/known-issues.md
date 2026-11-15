@@ -13,7 +13,7 @@
 
 - 7 days unattended in master mode.
 - ESP-only code paths verified by build only: setup portal, button, update check (HTTPS certificate bundle,
-  stack size), signed release images.
+  stack size), web flasher on a blank board, one-click update install.
 - Thread stacks (~100 KB in all) were never measured; they could be trimmed to win heap.
 - DE pull-down during reset / bootloader on the Waveshare board (hardware question).
 - Presence rules to confirm on other installations: ionizer per zone, missing IAQ sensor, radiant stages,
@@ -28,7 +28,7 @@ API and security
 - Two dangerous settings in one register with different confirmation words cannot be confirmed together by a
   raw write.
 - `/log` needs a token but not developer mode; `gwctl login` takes the password as an argument.
-- Update manifests may be plain http.
+- Update manifests may be plain http (the one-click install itself downloads the image over HTTPS only).
 
 MQTT / Home Assistant
 - Binary sensors render an unknown value as OFF instead of unknown.
@@ -48,5 +48,3 @@ Firmware
 Tools and tests
 - Restore compares values as JSON text (`21` vs `21.0` causes a harmless extra write).
 - No multi-iteration PBKDF2 test vector; `gwctl` error test has no 409 case.
-- The release web-flasher manifest flashes only the app (no bootloader / partition table): blank boards need
-  `espflash` the first time.

@@ -132,8 +132,8 @@ undo; backup / restore of the whole installation configuration to a file. Danger
 Advanced section with warning + typed confirmation.
 
 Security: read-only without password; session with timeout, lockout after 5 failures; password hashed in NVS;
-passwords never shown nor in diagnostics; OTA needs the password; release images are signed and unsigned
-images are refused; HTTP on the LAN (documented).
+passwords never shown nor in diagnostics; OTA needs the password or a token; release images are not signed (SHA-256
+checksums published); HTTP on the LAN (documented).
 
 ## 8. Local API
 
@@ -165,10 +165,10 @@ hardware/    compatible boards, wiring, contributed PCBs
 docs/        install, registers (generated), protocol, API, security, contributing
 ```
 
-Boards: `waveshare-esp32s3-rs485`, `generic-esp32-max485`; one image per board in each release. Hardware
+Boards: `waveshare-esp32s3-rs485`, `generic-esp32-max485`; releases carry the Waveshare image (the generic board builds from source). Hardware
 guide: 12 V max, consumption, RS-485 isolation, termination, 5-pin connector pinout.
 Install: web flasher (ESP Web Tools) first, then OTA from GitHub releases (offered, never automatic), rollback.
-CI: catalogue + generator tests, core tests against the simulator, build per board, signed release images.
+CI: catalogue + generator tests, core tests against the simulator, build per board, release images with SHA-256 checksums.
 SemVer; MQTT ids change only in a major version.
 Contributions: issue templates (new installation with diagnostics + recording, register found, board);
 "how to confirm a setting" guide (one parameter at a time, restore, evidence) with the never-test-blind list.
