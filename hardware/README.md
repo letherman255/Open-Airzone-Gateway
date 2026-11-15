@@ -28,14 +28,18 @@ standard 5-position 3.81 mm screw plug fits the central's header, so no solderin
 Master mode (the gateway replaces the webserver): one MC plug on the central's header, four wires to the
 Waveshare terminals.
 
-```
-central header ── MC 1,5/5-ST-3,81
-                     + ─────── Waveshare power terminal +  (7-36 V)
-                     − ─────── Waveshare power terminal −  (and RS-485 GND if your board has one)
-                     A ─────── Waveshare RS-485 A
-                     B ─────── Waveshare RS-485 B
-                     shield ── not connected
-```
+![Wiring: Airzone central to Waveshare ESP32-S3-RS485-CAN](wiring-waveshare.svg)
+
+| Airzone bus | Waveshare terminal | |
+|---|---|---|
+| + (12 V) | **VCC** (top, DC 7-36 V) | |
+| − (GND) | **GND** (top) | the Waveshare RS-485 side is isolated and has no GND terminal |
+| A | **A+** (bottom, RS485) | |
+| B | **B−** (bottom, RS485) | |
+| shield | — | not connected |
+
+The CAN terminals (L, H) stay unused. On a generic RS-485 module that is not isolated, also connect the bus
+− to the module's GND.
 
 Listen mode (next to the stock webserver): MC plug on the central, five wires 1:1 to an IMC plug that the
 webserver plugs into, and the four wires above taken from the same screw terminals (they take two thin wires

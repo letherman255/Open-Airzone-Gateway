@@ -81,8 +81,11 @@ reported as applied once the central reads back the new value. Details: [protoco
 | **Phoenix Contact MC 1,5/5-ST-3,81** screw plug (Mouser 651-1803604) | plugs onto the central's 5-pin bus header (shield, A, −, B, +) |
 | Phoenix Contact IMC 1,5/5-ST-3,81 (Mouser 651-1857919) | optional: keeps the stock webserver plugged in, for listen mode |
 
-No soldering: four wires from the screw plug to the board's terminals. Wiring, electrical rules and pin
-maps: [hardware/README.md](hardware/README.md).
+No soldering: four wires from the screw plug to the board's terminals.
+
+![Wiring: Airzone central to Waveshare ESP32-S3-RS485-CAN](hardware/wiring-waveshare.svg)
+
+Electrical rules, listen-mode wiring and other boards: [hardware/README.md](hardware/README.md).
 
 **Never power the board from USB and from the bus at the same time**, and never apply more than 12 V.
 
