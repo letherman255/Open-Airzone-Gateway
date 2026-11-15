@@ -28,6 +28,7 @@ jobs:
             features: ""
           - board: waveshare-esp32s3-rs485
             features: "--features master"
+            site: true
           - board: generic-esp32-max485
             features: "--features master"
             pins: "AZ_PIN_RX=16 AZ_PIN_TX=17 AZ_PIN_DE=4"
@@ -42,3 +43,25 @@ jobs:
       - name: Build ${{ matrix.board }} ${{ matrix.features }}
         working-directory: firmware/esp
         run: env AZ_BOARD=${{ matrix.board }} ${{ matrix.pins }} cargo build --release --target-dir target ${{ matrix.features }}
+      - name: Install espflash
+        if: matrix.site
+        run: |
+          curl -fsSL -o espflash.zip https://github.com/esp-rs/espflash/releases/download/v4.0.1/espflash-x86_64-unknown-linux-gnu.zip
+          unzip -o espflash.zip -d "$HOME/.local/bin"
+          chmod +x "$HOME/.local/bin/espflash"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build site
+        if: matrix.site
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          espflash save-image --chip esp32s3 firmware/esp/target/xtensa-esp32s3-espidf/release/airzone-gateway stage/app.bin
+          espflash partition-table firmware/esp/partitions.csv --to-binary -o stage/partition-table.bin
+          bootloader=$(ls -t firmware/esp/target/xtensa-esp32s3-espidf/release/build/esp-idf-sys-*/out/build/bootloader/bootloader.bin | head -n1)
+          version=$(grep -m1 '^version' firmware/esp/Cargo.toml | cut -d'"' -f2)
+          python3 -I tools/build_site.py --tag "v$version"             --cargo firmware/esp/Cargo.toml --partitions firmware/esp/partitions.csv             --bootloader "$bootloader" --partition-table stage/partition-table.bin --app stage/app.bin             --page docs/flasher/index.html             --base-url https://letherman255.github.io/Open-Airzone-Gateway/ --out site
+      - uses: actions/upload-artifact@v4
+        if: matrix.site
+        with:
+          name: site
+          path: site

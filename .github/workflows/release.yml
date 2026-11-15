@@ -7,21 +7,11 @@ permissions:
   contents: write
 
 jobs:
-  firmware:
+  build:
     runs-on: ubuntu-24.04
     env:
       # espup asks the GitHub API for releases: unauthenticated calls hit the shared-runner rate limit
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - board: waveshare-esp32s3-rs485
-            variant: master
-            features: "--features master"
-          - board: waveshare-esp32s3-rs485
-            variant: listen
-            features: ""
     steps:
       - uses: actions/checkout@v4
       - uses: esp-rs/xtensa-toolchain@v1.5
@@ -30,38 +20,74 @@ jobs:
           buildtargets: esp32s3
           default: true
           ldproxy: true
-      - name: Build (signed-app configuration)
-        working-directory: firmware/esp
-        env:
-          AZ_BOARD: ${{ matrix.board }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/firmware/esp/sdkconfig.defaults;${{ github.workspace }}/firmware/esp/sdkconfig.release"
-        run: cargo build --release --target-dir target ${{ matrix.features }}
-      - name: Image and signature
-        working-directory: firmware/esp
-        env:
-          SIGNING_KEY: ${{ secrets.FIRMWARE_SIGNING_KEY }}
+      - name: Install espflash
         run: |
-          pip install esptool espflash==4.0.0 || cargo install espflash --locked
-          espflash save-image --chip esp32s3 target/xtensa-esp32s3-espidf/release/airzone-gateway app.bin
-          printf '%s' "$SIGNING_KEY" > key.pem
-          espsecure.py sign_data --version 2 --keyfile key.pem --output airzone-gateway-${{ matrix.board }}-${{ matrix.variant }}.bin app.bin
-          rm key.pem
+          curl -fsSL -o espflash.zip https://github.com/esp-rs/espflash/releases/download/v4.0.1/espflash-x86_64-unknown-linux-gnu.zip
+          unzip -o espflash.zip -d "$HOME/.local/bin"
+          chmod +x "$HOME/.local/bin/espflash"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build firmware (Waveshare, master)
+        working-directory: firmware/esp
+        env:
+          AZ_BOARD: waveshare-esp32s3-rs485
+        run: cargo build --release --features master --target-dir target
+      - name: Images, partition table, site
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          espflash save-image --chip esp32s3 firmware/esp/target/xtensa-esp32s3-espidf/release/airzone-gateway stage/app.bin
+          espflash partition-table firmware/esp/partitions.csv --to-binary -o stage/partition-table.bin
+          bootloader=$(ls -t firmware/esp/target/xtensa-esp32s3-espidf/release/build/esp-idf-sys-*/out/build/bootloader/bootloader.bin | head -n1)
+          python3 -I tools/build_site.py --tag "${{ github.ref_name }}" \
+            --cargo firmware/esp/Cargo.toml --partitions firmware/esp/partitions.csv \
+            --bootloader "$bootloader" --partition-table stage/partition-table.bin --app stage/app.bin \
+            --page docs/flasher/index.html \
+            --base-url https://letherman255.github.io/Open-Airzone-Gateway/ --out site
+      - name: Release notes
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          : > release-notes.md
+          if [ -f CHANGELOG.md ]; then
+            awk -v v="$v" '/^## /{p = (index($0, "[" v "]") || index($0, " " v) ) ? 1 : 0; next} p' CHANGELOG.md > release-notes.md
+          fi
+          if [ ! -s release-notes.md ]; then echo "Open Airzone Gateway ${GITHUB_REF_NAME}" > release-notes.md; fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
       - uses: actions/upload-artifact@v4
         with:
-          name: fw-${{ matrix.board }}-${{ matrix.variant }}
-          path: firmware/esp/airzone-gateway-*.bin
+          name: release-files
+          path: |
+            site/firmware/*/*.bin
+            site/SHA256SUMS
+            release-notes.md
 
-  publish:
-    needs: firmware
+  release:
+    needs: build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          name: release-files
           path: dist
-          merge-multiple: true
-      - name: Web flasher manifest
-        run: python3 -c "import json,sys;json.dump({'name':'open-airzone-gateway','version':'${{ github.ref_name }}','builds':[{'chipFamily':'ESP32-S3','parts':[{'path':'airzone-gateway-waveshare-esp32s3-rs485-master.bin','offset':131072}]}]},open('dist/manifest.json','w'),indent=1)"
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: dist/release-notes.md
+          files: |
+            dist/site/firmware/*/*.bin
+            dist/site/SHA256SUMS
+
+  pages:
+    if: ${{ !contains(github.ref_name, '-') }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
