@@ -13,8 +13,15 @@ in listen mode and never transmits until switched to master mode.
 
 The file is a template. `{{VERSION}}` appears in it and is replaced with the release version by
 `tools/build_site.py`, which the release workflow (`.github/workflows/release.yml`) runs on each tag.
-The script writes the site: `index.html`, `manifest.json` (ESP Web Tools), `ota.json`, `SHA256SUMS`
-and `firmware/<version>/*.bin`. The workflow deploys that folder to GitHub Pages.
+The script writes the site: `index.html`, `manifest.json` (ESP Web Tools), `ota.json`,
+`firmware/<version>/*.bin` and `firmware/<version>/SHA256SUMS` (bare file names, so `sha256sum -c` works
+there and next to the flat release downloads). The workflow deploys that folder to GitHub Pages.
+
+One-time repository setup, or the `pages` job fails:
+
+- Settings → Pages → Source = **GitHub Actions**;
+- Settings → Environments → `github-pages` → Deployment branches and tags → add a rule for tags `v*`
+  (by default the environment only accepts the default branch, and releases deploy from a tag).
 
 To bump ESP Web Tools, change the version in the `<script>` tag (use a release at least two weeks old)
 and check the slot names (`activate`, `unsupported`, `not-allowed`) still exist.

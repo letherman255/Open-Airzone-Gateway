@@ -1,4 +1,5 @@
 """tools/build_site.py: layout parsing, tag check, merge, full site build."""
+import hashlib
 import importlib.util
 import json
 import os
@@ -69,9 +70,16 @@ def test_site(bs, tmp_path):
     assert len(ota["builds"][0]["parts"]) == 1
     path = ota["builds"][0]["parts"][0]["path"]
     assert path.endswith("airzone-gateway-0.2.0.bin") and "://" not in path
-    sums = (out / "SHA256SUMS").read_text()
-    assert "airzone-gateway-0.2.0-full.bin" in sums
+    assert not (out / "SHA256SUMS").exists()
+    fw = out / "firmware/0.2.0"
+    sums = (fw / "SHA256SUMS").read_text()
     assert len(sums.splitlines()) == 5
+    # bare names that verify next to the files (as `sha256sum -c` would), like flat release downloads
+    for line in sums.splitlines():
+        digest, name = line.split("  ")
+        assert "/" not in name
+        assert hashlib.sha256((fw / name).read_bytes()).hexdigest() == digest
+    assert "  airzone-gateway-0.2.0-full.bin\n" in sums
     assert (out / "index.html").read_text() == "<p>0.2.0</p>"
     assert "{{VERSION}}" not in (out / "index.html").read_text()
     full = (out / "firmware/0.2.0/airzone-gateway-0.2.0-full.bin").read_bytes()

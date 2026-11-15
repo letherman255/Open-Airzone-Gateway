@@ -47,3 +47,7 @@ espflash flash --port COMx --bootloader $bl --partition-table partitions.csv --e
 
 Dev server (the page and the API on a simulated central, master mode): `cargo run -p airzone-sim --bin devserver`,
 then open http://127.0.0.1:8780. Add `-- --fake-update 9.9.9` to show the update banner (installing is simulated).
+
+Releases: push a tag `vX.Y.Z` equal to the version in `firmware/esp/Cargo.toml`; `.github/workflows/release.yml`
+builds, publishes the release and deploys the Pages site. The `github-pages` environment must allow tags `v*`
+(one-time setup in [flasher/README.md](flasher/README.md)).

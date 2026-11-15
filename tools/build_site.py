@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build the GitHub Pages site: web flasher, ESP Web Tools manifest, OTA manifest, checksums.
+"""Build the GitHub Pages site: web flasher, ESP Web Tools manifest, OTA manifest, checksums
+(firmware/<version>/SHA256SUMS, bare file names).
 
 Python standard library only.
 """
@@ -154,10 +155,12 @@ def main(argv=None):
     with open(os.path.join(a.out, "index.html"), "w", encoding="utf-8", newline="\n") as f:
         f.write(page)
 
+    # bare file names, next to the files: `sha256sum -c SHA256SUMS` works in firmware/<version>/ on the
+    # site and in a folder of release downloads (release assets are flat)
     sums = "".join(
-        f"{hashlib.sha256(files[n]).hexdigest()}  {rel}/{n}\n" for n in sorted(files)
+        f"{hashlib.sha256(files[n]).hexdigest()}  {n}\n" for n in sorted(files)
     )
-    with open(os.path.join(a.out, "SHA256SUMS"), "w", encoding="utf-8", newline="\n") as f:
+    with open(os.path.join(fw, "SHA256SUMS"), "w", encoding="utf-8", newline="\n") as f:
         f.write(sums)
     return 0
 

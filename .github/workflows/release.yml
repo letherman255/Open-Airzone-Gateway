@@ -14,6 +14,13 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      # fail in seconds, not after the long build (build_site.py checks it again)
+      - name: Tag matches the Cargo version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          v=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' firmware/esp/Cargo.toml | head -n1)
+          if [ "${TAG#v}" != "$v" ]; then echo "::error::tag $TAG does not match Cargo version $v"; exit 1; fi
       - uses: esp-rs/xtensa-toolchain@v1.5
         with:
           version: 1.97.0.0
@@ -32,25 +39,29 @@ jobs:
           AZ_BOARD: waveshare-esp32s3-rs485
         run: cargo build --release --features master --target-dir target
       - name: Images, partition table, site
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p stage
           espflash save-image --chip esp32s3 firmware/esp/target/xtensa-esp32s3-espidf/release/airzone-gateway stage/app.bin
           espflash partition-table firmware/esp/partitions.csv --to-binary -o stage/partition-table.bin
           bootloader=$(ls -t firmware/esp/target/xtensa-esp32s3-espidf/release/build/esp-idf-sys-*/out/build/bootloader/bootloader.bin | head -n1)
-          python3 -I tools/build_site.py --tag "${{ github.ref_name }}" \
+          python3 -I tools/build_site.py --tag "$TAG" \
             --cargo firmware/esp/Cargo.toml --partitions firmware/esp/partitions.csv \
             --bootloader "$bootloader" --partition-table stage/partition-table.bin --app stage/app.bin \
             --page docs/flasher/index.html \
             --base-url https://letherman255.github.io/Open-Airzone-Gateway/ --out site
       - name: Release notes
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${TAG#v}"
           : > release-notes.md
           if [ -f CHANGELOG.md ]; then
             awk -v v="$v" '/^## /{p = (index($0, "[" v "]") || index($0, " " v) ) ? 1 : 0; next} p' CHANGELOG.md > release-notes.md
           fi
-          if [ ! -s release-notes.md ]; then echo "Open Airzone Gateway ${GITHUB_REF_NAME}" > release-notes.md; fi
+          if [ ! -s release-notes.md ]; then echo "Open Airzone Gateway ${TAG}" > release-notes.md; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
@@ -59,7 +70,7 @@ jobs:
           name: release-files
           path: |
             site/firmware/*/*.bin
-            site/SHA256SUMS
+            site/firmware/*/SHA256SUMS
             release-notes.md
 
   release:
@@ -76,7 +87,7 @@ jobs:
           body_path: dist/release-notes.md
           files: |
             dist/site/firmware/*/*.bin
-            dist/site/SHA256SUMS
+            dist/site/firmware/*/SHA256SUMS
 
   pages:
     if: ${{ !contains(github.ref_name, '-') }}
