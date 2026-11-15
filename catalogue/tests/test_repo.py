@@ -39,3 +39,13 @@ def test_doc_links_resolve():
                 if link.startswith(("http://", "https://", "mailto:")):
                     continue
                 assert os.path.exists(os.path.normpath(os.path.join(root, link))), f"{path}: {link}"
+
+
+def test_flasher_page():
+    page = open(os.path.join(REPO, "docs", "flasher", "index.html"), encoding="utf-8").read()
+    assert "manifest.json" in page
+    assert re.search(r"esp-web-tools@10\.\d+\.\d+/", page)
+    assert "Unplug the board from the Airzone bus" in page
+    assert 'slot="unsupported"' in page
+    assert 'slot="not-allowed"' in page
+    assert "{{VERSION}}" in page

@@ -3,23 +3,86 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Gateway web flasher</title>
-<script type="module" src="https://unpkg.com/esp-web-tools@9.4.3/dist/web/install-button.js?module"></script>
+<title>Open Airzone Gateway</title>
+<meta name="description" content="Flash the Open Airzone Gateway firmware onto a Waveshare ESP32-S3-RS485-CAN from your browser.">
+<script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
 <style>
-  :root { --bg: #fff; --text: #1d232b; --muted: #66707d; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111418; --text: #e6e9ed; --muted: #98a2ad; } }
-  :root[data-theme="dark"] { --bg: #111418; --text: #e6e9ed; --muted: #98a2ad; }
-  body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 16px; background: var(--bg); color: var(--text); }
-  p.muted { color: var(--muted); }
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d232b; --muted: #5b6673; --border: #d9dee5;
+    --accent: #1565c0; --accent-text: #ffffff; --warn-bg: #fff4e0; --warn-border: #e0a030; --warn-text: #5a3b00;
+    --code-bg: #eceff3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101317; --card: #181c22; --text: #e6e9ed; --muted: #9aa4af; --border: #2c333c;
+      --accent: #5aa2ff; --accent-text: #0b1118; --warn-bg: #2b2210; --warn-border: #a97a1f; --warn-text: #f3d9a0;
+      --code-bg: #232932;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 40rem; margin: 0 auto; padding: 24px 16px 32px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 0 0 14px; }
+  .card ul, .card ol { margin: 0; padding-left: 1.2rem; }
+  .card li + li { margin-top: 4px; }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+  .warn h2 { margin-bottom: 4px; }
+  .warn p { margin: 0; }
+  .install { text-align: center; padding: 20px 16px; }
+  .install button, .install .fallback { font: inherit; font-weight: 600; background: var(--accent); color: var(--accent-text);
+    border: 0; border-radius: 8px; padding: 12px 22px; cursor: pointer; }
+  .install .fallback { background: none; color: var(--text); border: 1px dashed var(--border); font-weight: 400; cursor: default; text-align: left; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .92em; overflow-wrap: anywhere; }
+  a { color: var(--accent); }
+  .meta, footer { color: var(--muted); font-size: .9rem; }
+  footer { margin-top: 18px; }
 </style>
 </head>
 <body>
-<h1>open-airzone-gateway — web flasher</h1>
-<p>Plug the board into this computer with USB (Chrome or Edge on a desktop), then click the button.
-<b>Unplug the board from the Airzone bus first</b>: never power it from USB and from the bus terminal at the same time.</p>
-<esp-web-install-button manifest="manifest.json"></esp-web-install-button>
-<p class="muted">After flashing, the board opens the access point <code>airzone-gw-XXXX</code>; connect to it with a phone to enter
-your Wi-Fi and MQTT settings. It starts in listen mode and never transmits on the bus until you switch it to master mode.</p>
-<p class="muted">Unofficial project, not affiliated with Airzone.</p>
+<main>
+<h1>Open Airzone Gateway</h1>
+<p class="lead">Put open firmware on a blank Waveshare ESP32-S3-RS485-CAN, right from this page.</p>
+
+<section class="card">
+  <h2>What you need</h2>
+  <ul>
+    <li>A Waveshare ESP32-S3-RS485-CAN board</li>
+    <li>A USB-C <b>data</b> cable (some charge-only cables will not work)</li>
+    <li>A computer with Chrome or Edge (Web Serial is not available on phones or Safari)</li>
+  </ul>
+</section>
+
+<section class="card warn">
+  <h2>Before you plug it in</h2>
+  <p><b>Unplug the board from the Airzone bus</b> first. Never power it from USB and from the bus terminal at the same time: this can damage the board.</p>
+</section>
+
+<section class="card install">
+  <esp-web-install-button manifest="manifest.json">
+    <button slot="activate" type="button">Install firmware v{{VERSION}}</button>
+    <span slot="unsupported" class="fallback">This browser cannot flash over USB. Open this page in Chrome or Edge on a computer.</span>
+    <span slot="not-allowed" class="fallback">Flashing only works on a secure (HTTPS) page. Open the official page at https://letherman255.github.io/Open-Airzone-Gateway/.</span>
+  </esp-web-install-button>
+</section>
+
+<section class="card">
+  <h2>What happens next</h2>
+  <ol>
+    <li>Join the open Wi-Fi network <code>airzone-gw-XXXX</code> that the board creates.</li>
+    <li>Enter your Wi-Fi and your MQTT broker details.</li>
+    <li>Open <code>http://&lt;gateway IP&gt;</code> and set the admin password.</li>
+  </ol>
+  <p class="meta">The gateway starts in listen mode and never transmits on the bus until you switch it to master mode.</p>
+</section>
+
+<p class="meta">Version {{VERSION}} &middot;
+  <a href="https://github.com/letherman255/Open-Airzone-Gateway/releases/tag/v{{VERSION}}">release notes</a> &middot;
+  <a href="SHA256SUMS">SHA256SUMS</a></p>
+
+<footer>Unofficial project, not affiliated with or endorsed by Airzone.</footer>
+</main>
 </body>
 </html>

@@ -73,6 +73,7 @@ def test_site(bs, tmp_path):
     assert "airzone-gateway-0.2.0-full.bin" in sums
     assert len(sums.splitlines()) == 5
     assert (out / "index.html").read_text() == "<p>0.2.0</p>"
+    assert "{{VERSION}}" not in (out / "index.html").read_text()
     full = (out / "firmware/0.2.0/airzone-gateway-0.2.0-full.bin").read_bytes()
     assert len(full) == 0x20000 + 4096 and full[0x20000] == 0xE9
 
