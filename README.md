@@ -132,7 +132,13 @@ the central reads back the new value. Details: [protocol](docs/protocol.md),
 |---|---|
 | Listen mode | runs on the author's installation since 2026-11-05 |
 | Master mode | runs on the author's installation since 2026-11-06 (stock webserver unplugged): discovery, polling, Home Assistant control, every non-dangerous confirmed setting in both directions |
-| Not verified yet | a 7-day unattended run, other installations, several centrals, zones 17-32, radiant stages, other indoor units, one-click updates |
+| Not verified yet | the browser flasher on a real board, a 7-day unattended run, other installations, several centrals, zones 17-32, radiant stages, other indoor units, one-click updates |
+
+## Support
+
+I built this for my own installation and share it so that others can do the same. I answer issues on a
+best-effort basis, but I have no installation other than mine to test with: anything outside it relies on
+your reports. Issues and pull requests are welcome. The licence applies as written: no warranty.
 
 ## Documentation
 
