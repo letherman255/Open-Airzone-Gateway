@@ -92,6 +92,8 @@ fn info(g: &Gateway) -> String {
         ("latest_version", i.latest_version.as_deref().map(js).unwrap_or_else(|| "null".into())),
         ("latest_url", i.latest_url.as_deref().map(js).unwrap_or_else(|| "null".into())),
         ("update_state", js(&i.update_state)),
+        ("update_check", (!g.settings.update_manifest.is_empty()).to_string()),
+        ("update_checked", js(&i.update_checked)),
         ("reset_reason", js(&i.reset_reason)),
         ("free_heap", i.free_heap.to_string()),
         ("min_free_heap", i.min_free_heap.to_string()),
@@ -677,8 +679,7 @@ pub fn handle(g: &mut Gateway, r: &ApiRequest, now_ms: u64, random: [u8; 32]) ->
             ok(obj(&[("rediscover", "true".into())]))
         }
         ("POST", ["update", "install"]) => {
-            let st = g.info.update_state.as_str();
-            if st.starts_with("downloading") || st == "installing" || st == "restarting" {
+            if crate::update::install_busy(&g.info.update_state) {
                 return error(409, "update already in progress");
             }
             let (Some(version), Some(url)) = (g.info.latest_version.clone(), g.info.latest_url.clone()) else {

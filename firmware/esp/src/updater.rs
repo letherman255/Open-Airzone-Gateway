@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use airzone_core::update::{newer, parse_manifest};
+use airzone_core::update::{install_busy, newer, parse_manifest};
 use anyhow::Result;
 use esp_idf_svc::http::client::{Configuration, EspHttpConnection};
 use esp_idf_svc::http::Method;
@@ -43,18 +43,29 @@ fn fetch(url: &str) -> Result<String> {
 
 /// Always running: the manifest URL is read from the live settings every minute, so turning the check on
 /// or changing the URL takes effect without a restart. A changed URL is checked at once; otherwise the
-/// first check is 5 min after boot, then once a day. An empty URL means idle and withdraws any offer.
+/// first check is 5 min after boot, then once a day (one hour after a failed check). No check runs while
+/// a one-click install is busy. An empty URL means idle and withdraws any offer and the last result.
+/// The result of the last check is `info.update_checked` (`<when> ok` / `<when> failed: <reason>`).
 pub fn spawn(shared: Arc<Shared>) -> Result<()> {
     std::thread::Builder::new().name("update".into()).stack_size(10 * 1024).spawn(move || {
         let mut seen = shared.gw.lock().unwrap().settings.update_manifest.clone();
-        let mut last_check: Option<Instant> = None;
+        let mut last_check: Option<(Instant, bool)> = None;
         loop {
             std::thread::sleep(Duration::from_secs(60));
-            let url = shared.gw.lock().unwrap().settings.update_manifest.clone();
+            let (url, busy) = {
+                let gw = shared.gw.lock().unwrap();
+                (gw.settings.update_manifest.clone(), install_busy(&gw.info.update_state))
+            };
+            // the installer works from the offer: leave it (and any settings change, `seen` is kept) alone
+            // until the install is over
+            if busy {
+                continue;
+            }
             let changed = url != seen;
             seen = url.clone();
             if changed {
                 clear_offer(&shared);
+                shared.gw.lock().unwrap().info.update_checked.clear();
             }
             if url.is_empty() {
                 last_check = None;
@@ -63,19 +74,22 @@ pub fn spawn(shared: Arc<Shared>) -> Result<()> {
             let due = match last_check {
                 _ if changed => true,
                 None => crate::now_ms() >= FIRST_CHECK_MS,
-                Some(t) => t.elapsed() >= Duration::from_secs(24 * 3600),
+                Some((t, true)) => t.elapsed() >= Duration::from_secs(24 * 3600),
+                Some((t, false)) => t.elapsed() >= Duration::from_secs(RETRY_S),
             };
             if !due {
                 continue;
             }
-            last_check = Some(Instant::now());
-            check(&shared, &url);
+            let ok = check(&shared, &url);
+            last_check = Some((Instant::now(), ok));
         }
     })?;
     Ok(())
 }
 
 const FIRST_CHECK_MS: u64 = 300_000;
+/// Retry delay after a failed check (network down, manifest unreadable).
+const RETRY_S: u64 = 3600;
 
 fn clear_offer(shared: &Shared) {
     let mut gw = shared.gw.lock().unwrap();
@@ -83,29 +97,46 @@ fn clear_offer(shared: &Shared) {
     gw.info.latest_url = None;
 }
 
-fn check(shared: &Shared, url: &str) {
+/// `2026-11-15T10:00:00` once SNTP set the clock, `uptime 312 s` before.
+fn when() -> String {
+    if crate::clock::Clock::time_valid() {
+        crate::clock::iso_now()
+    } else {
+        format!("uptime {} s", crate::now_ms() / 1000)
+    }
+}
+
+/// One check; false when the manifest could not be fetched or read.
+fn check(shared: &Shared, url: &str) -> bool {
     // network I/O without any lock held
-    match fetch(url) {
-        Ok(text) => match parse_manifest(&text, url) {
-            Some(u) if newer(crate::VERSION, &u.version) => {
-                log::info!("update available: {}", u.version);
-                let mut gw = shared.gw.lock().unwrap();
-                // the setting may have changed during the fetch: an answer for an old URL is dropped
-                if gw.settings.update_manifest != url {
-                    return;
-                }
-                if gw.info.latest_version.as_deref() != Some(u.version.as_str()) {
-                    gw.push_event("update", &format!("firmware {} available", u.version));
-                }
-                gw.info.latest_version = Some(u.version.clone());
-                gw.info.latest_url = Some(u.url);
+    let res = fetch(url).and_then(|text| parse_manifest(&text, url).ok_or_else(|| anyhow::anyhow!("manifest unreadable")));
+    let mut gw = shared.gw.lock().unwrap();
+    // the setting may have changed during the fetch: an answer for an old URL is dropped
+    if gw.settings.update_manifest != url {
+        return true;
+    }
+    match res {
+        Ok(u) if newer(crate::VERSION, &u.version) => {
+            log::info!("update available: {}", u.version);
+            if gw.info.latest_version.as_deref() != Some(u.version.as_str()) {
+                gw.push_event("update", &format!("firmware {} available", u.version));
             }
-            Some(_) => {
-                log::info!("firmware up to date");
-                clear_offer(shared);
-            }
-            None => log::warn!("update manifest unreadable"),
-        },
-        Err(e) => log::warn!("update check failed: {e}"),
+            gw.info.latest_version = Some(u.version.clone());
+            gw.info.latest_url = Some(u.url);
+            gw.info.update_checked = format!("{} ok", when());
+            true
+        }
+        Ok(_) => {
+            log::info!("firmware up to date");
+            gw.info.latest_version = None;
+            gw.info.latest_url = None;
+            gw.info.update_checked = format!("{} ok", when());
+            true
+        }
+        Err(e) => {
+            log::warn!("update check failed: {e}");
+            gw.info.update_checked = format!("{} failed: {e}", when());
+            false
+        }
     }
 }

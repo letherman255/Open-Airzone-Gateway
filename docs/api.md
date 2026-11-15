@@ -28,7 +28,11 @@ curl -s -H "Authorization: Bearer TOKEN" http://GATEWAY/api/v1/writes/7
 ## Installing an update
 
 `GET /info` shows `latest_version`, `latest_url` and `update_state` (empty when idle, otherwise
-`downloading 37%`, `installing`, `restarting` or `failed: <reason>`). `POST /api/v1/update/install`
+`downloading 37%`, `installing`, `restarting` or `failed: <reason>`; after a new version that did not start,
+`failed: the new firmware did not start, back on <version>`). `update_check` is true when a manifest URL is
+set; `update_checked` is the last check, empty when off or none ran yet, else `<when> ok` or
+`<when> failed: <reason>`, `<when>` being the local time (`2026-11-15T10:00:00`) or `uptime 312 s` before the
+clock is set. A failed check is retried after an hour, a good one after a day. `POST /api/v1/update/install`
 (admin token) installs the release found by the update check: 202 `{"installing": "<version>"}`, 409
 when there is no update or one is already running, 400 when the image URL is not HTTPS. Never automatic
 and not available over MQTT.

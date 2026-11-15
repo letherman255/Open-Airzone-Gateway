@@ -34,6 +34,10 @@ pub struct GatewayInfo {
     pub latest_url: Option<String>,
     /// One-click install progress: empty when idle, else `downloading 37%`, `installing`, `restarting` or `failed: <reason>`.
     pub update_state: String,
+    /// Last update check: empty when checks are off or none ran yet, else `<when> ok` or
+    /// `<when> failed: <reason>`, `<when>` being the local time `2026-11-15T10:00:00` or `uptime 312 s`
+    /// before the clock is set.
+    pub update_checked: String,
     /// Why the board last restarted (power on, panic, watchdog, brownout…).
     pub reset_reason: String,
     pub free_heap: u32,

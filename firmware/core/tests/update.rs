@@ -33,3 +33,13 @@ fn image_check() {
     assert!(check_image(Some(MIN_IMAGE - 1), 0xE9).is_err());
     assert_eq!(check_image(Some(MIN_IMAGE), b'<'), Err("not an ESP app image"));
 }
+
+#[test]
+fn install_busy_states() {
+    for s in ["downloading 0%", "downloading 55%", "installing", "restarting"] {
+        assert!(install_busy(s), "{s}");
+    }
+    for s in ["", "failed: x", "failed: the new firmware did not start, back on 0.2.0"] {
+        assert!(!install_busy(s), "{s}");
+    }
+}

@@ -99,8 +99,7 @@ pub fn start(shared: Arc<Shared>, ha: HaConfig) -> Result<EspHttpServer<'static>
             let bearer = header_bearer(req.header("Authorization"));
             let (ok, installing) = {
                 let mut gw = shared.gw.lock().unwrap();
-                let st = gw.info.update_state.as_str();
-                let busy = st.starts_with("downloading") || st == "installing" || st == "restarting";
+                let busy = airzone_core::update::install_busy(&gw.info.update_state);
                 (bearer.is_some_and(|t| gw.auth.bearer_ok(&t, crate::now_ms())), busy)
             };
             if !ok {

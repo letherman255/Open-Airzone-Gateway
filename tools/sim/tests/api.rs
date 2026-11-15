@@ -556,4 +556,11 @@ fn info_has_update_state() {
     let mut g = gateway(Mode::Listen);
     let (_, v) = call(&mut g, "GET", "/api/v1/info", "", None);
     assert_eq!(v.get("update_state").unwrap().as_str(), Some(""));
+    assert_eq!(v.get("update_check"), Some(&Value::Bool(false)));
+    assert_eq!(v.get("update_checked").unwrap().as_str(), Some(""));
+    g.settings.update_manifest = "https://example.org/ota.json".into();
+    g.info.update_checked = "2026-11-15T10:00:00 failed: HTTP 404".into();
+    let (_, v) = call(&mut g, "GET", "/api/v1/info", "", None);
+    assert_eq!(v.get("update_check"), Some(&Value::Bool(true)));
+    assert_eq!(v.get("update_checked").unwrap().as_str(), Some("2026-11-15T10:00:00 failed: HTTP 404"));
 }

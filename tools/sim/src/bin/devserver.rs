@@ -57,6 +57,8 @@ fn main() {
         ..Default::default()
     };
     if let Some(v) = fake_update {
+        settings.update_manifest = "https://example.org/ota.json".into();
+        info.update_checked = "uptime 0 s ok".into();
         info.latest_url = Some(format!("https://example.org/airzone-gateway-{v}.bin"));
         info.latest_version = Some(v);
     }

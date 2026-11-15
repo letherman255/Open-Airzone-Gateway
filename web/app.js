@@ -30,7 +30,8 @@ const STRINGS = {
   restarting: "The gateway is restarting…", updateFailed: "Update failed: {r}", retry: "Retry", installRefused: "Install refused: {e}",
   checkUpdates: "Check for updates from the official releases",
   checkUpdatesHelp: "When on, the gateway contacts letherman255.github.io once a day to look for a new firmware. Nothing is installed without your confirmation. The field below stays free for a custom manifest URL.",
-  savedNow: "Saved.",
+  savedNow: "Saved.", lastCheck: "Last check: {r}", checkPending: "No check yet (the first one runs within a few minutes).",
+  networkError: "The gateway did not answer.",
   masterWarning: "Master mode makes the gateway the bus master. Unplug the Airzone webserver first: two masters on the bus corrupt each other's frames.",
   notBuilt: "This firmware is built without master mode.",
   zone: "Zone", master: "master zone", outlets: "Air outlets", none: "—", unknown: "unknown",
@@ -240,7 +241,8 @@ function refreshUpdateBox() {
 
 async function startInstall() {
   state.confirmInstall = false;
-  const r = await api("POST", "update/install");
+  let r;
+  try { r = await api("POST", "update/install"); } catch { toast(t("networkError")); refreshUpdateBox(); return; }
   if (r.status !== 202) { toast(t("installRefused", { e: (r.data && r.data.error) || "HTTP " + r.status })); refreshUpdateBox(); return; }
   state.info.update_state = "downloading 0%";
   refreshUpdateBox();
@@ -316,16 +318,19 @@ async function viewGateway() {
   check.addEventListener("change", async () => {
     const v = check.checked ? OFFICIAL_MANIFEST : "";
     inputs.update_manifest.value = v;
-    const r = await api("POST", "settings", { update_manifest: v });
-    toast(r.status === 200 ? t("savedNow") : r.data.error);
+    let r;
+    try { r = await api("POST", "settings", { update_manifest: v }); } catch { toast(t("networkError")); return; }
+    toast(r.status === 200 ? t("savedNow") : (r.data && r.data.error) || "HTTP " + r.status);
   });
+  const lastCheck = i.update_checked ? t("lastCheck", { r: i.update_checked }) : i.update_check ? t("checkPending") : "";
   inputs.update_manifest.addEventListener("input", () => (check.checked = inputs.update_manifest.value === OFFICIAL_MANIFEST));
   out.append(el("h2", {}, t("network")),
     el("div", { class: "row" }, el("label", {}, check, " ", t("checkUpdates"))), el("p", { class: "muted" }, t("checkUpdatesHelp")),
+    lastCheck ? el("p", { class: "muted", id: "lastcheck" }, lastCheck) : "",
     el("table", {}, fields.map((f) => el("tr", {}, el("th", {}, f), el("td", {}, inputs[f])))),
     el("div", { class: "row" }, el("button", { class: "primary", type: "button", onclick: async () => {
       const body = {}; for (const f of fields) if (!(f.endsWith("pass") && !inputs[f].value)) body[f] = inputs[f].value;
-      const r = await api("POST", "settings", body); toast(r.status === 200 ? t("saved") : r.data.error);
+      const r = await api("POST", "settings", body); toast(r.status === 200 ? t("saved") : (r.data && r.data.error) || "HTTP " + r.status);
     } }, t("save")), el("button", { type: "button", onclick: () => api("POST", "restart") }, t("restart")),
     el("button", { type: "button", onclick: () => api("POST", "rediscover") }, t("rediscover")),
     el("button", { type: "button", onclick: async () => { const r = await api("GET", "diagnostics"); const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 1)], { type: "application/json" })), download: "airzone-gateway-diagnostics.json" }); a.click(); } }, t("diagnostics"))));

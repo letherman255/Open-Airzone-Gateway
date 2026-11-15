@@ -44,6 +44,12 @@ pub fn parse_manifest(text: &str, manifest_url: &str) -> Option<UpdateInfo> {
     Some(UpdateInfo { version, url })
 }
 
+/// A one-click install is running (`update_state` downloading / installing / restarting). Empty and
+/// `failed: …` are idle.
+pub fn install_busy(update_state: &str) -> bool {
+    update_state.starts_with("downloading") || update_state == "installing" || update_state == "restarting"
+}
+
 /// Smallest and largest firmware image accepted (a tiny size would make the OTA begin erase the rollback slot).
 pub const MIN_IMAGE: usize = 64 * 1024;
 pub const MAX_IMAGE: usize = 0x400000;

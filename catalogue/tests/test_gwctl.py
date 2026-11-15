@@ -22,12 +22,11 @@ def free_port():
     return p
 
 
-@pytest.fixture(scope="module")
-def server():
+def start(*extra):
     if not os.path.exists(EXE):
         pytest.skip("build the dev server first: cargo build -p airzone-sim --bin devserver")
     port = free_port()
-    proc = subprocess.Popen([EXE, str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc = subprocess.Popen([EXE, str(port), *extra], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     host = f"127.0.0.1:{port}"
     for _ in range(50):
         try:
@@ -35,6 +34,12 @@ def server():
             break
         except OSError:
             time.sleep(0.1)
+    return proc, host
+
+
+@pytest.fixture(scope="module")
+def server():
+    proc, host = start()
     def post(path, body):
         req = urllib.request.Request(f"http://{host}/api/v1/{path}", data=json.dumps(body).encode(), method="POST")
         req.add_header("Content-Type", "application/json")
@@ -102,4 +107,18 @@ def test_gwctl_update_reports_state(server):
     host, _ = server
     r = run(host, "update")
     assert r.returncode == 0, r.stderr
-    assert "up to date" in r.stdout
+    # the dev server has no update manifest: checks are off, not "up to date"
+    assert "update check off" in r.stdout
+    assert "up to date" not in r.stdout
+    assert "update_state: idle" in r.stdout
+
+
+def test_gwctl_update_shows_offer_and_last_check():
+    proc, host = start("--fake-update", "9.9.9")
+    try:
+        r = run(host, "update")
+        assert r.returncode == 0, r.stderr
+        assert "latest_version: 9.9.9" in r.stdout
+        assert "last check: uptime 0 s ok" in r.stdout
+    finally:
+        proc.kill()

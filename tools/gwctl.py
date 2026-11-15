@@ -202,7 +202,19 @@ def main(argv=None):
         elif a.cmd == "update":
             info = c.call("GET", "info")
             latest = info.get("latest_version")
-            print(f"latest_version: {latest}" if latest else "up to date")
+            checked = info.get("update_checked") or ""
+            if latest:
+                print(f"latest_version: {latest}")
+            elif not info.get("update_check", bool(checked)):
+                print("update check off")
+            elif not checked:
+                print("update check on, not run yet")
+            elif " failed" in checked:
+                print("update check failed")
+            else:
+                print("up to date")
+            if checked:
+                print(f"last check: {checked}")
             print(f"update_state: {info.get('update_state') or 'idle'}")
             if a.install:
                 print(json.dumps(c.call("POST", "update/install", {})))
