@@ -16,14 +16,16 @@
 
 ## Firmware images and updates
 
-- Release images are **not signed**. Each release publishes `SHA256SUMS` for its files; the web flasher is
-  served from the project's GitHub Pages site over HTTPS.
+- Release images are **not signed**. Each release publishes `SHA256SUMS` for its files (as a release file,
+  and on the Pages site in `firmware/<version>/`; run `sha256sum -c SHA256SUMS` next to the files). The web
+  flasher is served from the project's GitHub Pages site over HTTPS.
 - Installing firmware over the network always needs the **admin password or an API token**: the HTTP upload
   (`POST /api/v1/ota`), the TCP 7001 upload (token) and the one-click install. Anyone with that password or a
   token can install any firmware, so protect them like the password of the gateway itself.
-- The **one-click install** downloads the application image named in the release manifest **over HTTPS
-  only** (ESP-IDF certificate bundle), checks its size and image header, and writes the inactive slot. It is
-  never automatic and not available over MQTT.
+- The **one-click install** (from 0.2.0, admin only) downloads the application image named in the release
+  manifest **over HTTPS only** (ESP-IDF certificate bundle), checks its size and image header, and writes
+  the inactive slot. It is never automatic and not available over MQTT. It will be tested for real with
+  0.2.1; the manual update is the fallback.
 - A new image that is not confirmed within 180 s rolls back to the previous one. Only one firmware write
   runs at a time.
 - Flashing over USB needs physical access to the board and is not protected.
@@ -35,8 +37,9 @@ VMC renewal days and the free-cooling months. Everything else works without inte
 
 The **update check is opt-in**: when you tick *Check for updates from the official releases* (Gateway →
 Network), the gateway fetches `https://letherman255.github.io/Open-Airzone-Gateway/ota.json` within a minute
-of turning it on, 5 minutes after each start, then once a day. The request carries no account and no data about your installation: only what
+of turning it on, 5 minutes after each start, then once a day (an hour later after a failed check). The request carries no account and no data about your installation: only what
 any HTTPS client sends (IP address, TLS handshake) and the user agent `open-airzone-gateway`. Untick it to
 stop. A custom manifest URL can be entered instead; it is then your choice of server.
 
-The one-click install (when you click it) downloads the image named in that manifest, from the same site.
+The one-click install (from 0.2.0, admin only, only when you click it) downloads the image named in that
+manifest, from the same site.

@@ -27,7 +27,7 @@ the bus at the same time.
 1. Plug the board into a computer with the USB-C data cable.
 2. Open the [web flasher](https://letherman255.github.io/Open-Airzone-Gateway/) in **Chrome or Edge** on a
    computer (Firefox, Safari and phones have no Web Serial).
-3. Click *Install firmware*, choose the board's serial port, and confirm.
+3. Click *Install firmware v…* (the version of the latest release), choose the board's serial port, and confirm.
 4. The flasher asks whether to **erase the device**:
    - *erase* gives a fresh board (recommended the first time, and when a board was used for something else);
    - *keep* keeps the gateway settings (Wi-Fi, MQTT, admin password) when you reinstall over an existing
@@ -41,7 +41,9 @@ BOOT button while plugging in the USB cable, then try again.
 
 Each [release](https://github.com/letherman255/Open-Airzone-Gateway/releases) has a merged image
 `airzone-gateway-<version>-full.bin` that goes at offset 0 (bootloader, partition table, cleared OTA data and
-the application), and `SHA256SUMS` to check the downloads. With
+the application), and `SHA256SUMS` to check the downloads (`sha256sum -c SHA256SUMS --ignore-missing` in
+the download folder). Flashing the `-full` image by hand **wipes the gateway settings** (it overwrites the
+settings storage too); use the web flasher with *keep* to keep them. With
 [espflash](https://github.com/esp-rs/espflash) or esptool:
 
 ```sh
@@ -111,7 +113,14 @@ updates from the official releases*. The gateway then reads the release manifest
 entity. It never installs anything by itself. Untick it to stop the check; the field below it accepts a
 custom manifest URL.
 
-**One-click install** from the gateway page is coming with the next release.
+The page shows the result of the last check under the checkbox (`Last check: <time> ok` or
+`… failed: <reason>`; a failed check is retried after an hour).
+
+**One-click install (admin only).** From 0.2.0 the gateway page can install a newer release in one click:
+when an update is offered, log in, click *Install*, then *Install now*. The gateway downloads the
+application image over HTTPS, writes it, restarts and confirms the new version by itself once it is back on
+Wi-Fi. If the new version does not start, the gateway comes back on the old one and the page says so, with
+a retry. It will be tested for real with 0.2.1; the manual update below is the fallback.
 
 **Manual update** (admin password or API token needed): download `airzone-gateway-<version>.bin` (the
 application image, not the `-full` one) from the

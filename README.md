@@ -38,7 +38,7 @@ build from source ([hardware/README.md](hardware/README.md)).
 ### 2. Flash it from your browser
 
 Plug the board into a computer with the USB-C cable, **not into the Airzone bus**. Open the
-[web flasher](https://letherman255.github.io/Open-Airzone-Gateway/) in Chrome or Edge and click *Install*.
+[web flasher](https://letherman255.github.io/Open-Airzone-Gateway/) in Chrome or Edge and click *Install firmware v…*.
 Nothing to install on the computer.
 
 ### 3. Wire it
@@ -106,8 +106,8 @@ house. This project speaks that bus itself, locally.
 - **Two modes**: *listen* (receive only, next to the stock webserver) and *master* (replaces it).
 - **Documented local API**: HTTP JSON + WebSocket ([docs/api.md](docs/api.md)), a command-line client.
 - **Maintenance**: Wi-Fi setup portal, firmware updates over Wi-Fi with automatic rollback, optional update
-  check, admin password and API tokens. One-click updates from the gateway page are coming with the next
-  release.
+  check, admin password and API tokens. From 0.2.0 the gateway page can install a newer release in one
+  click (admin only); it will be tested for real with 0.2.1, and the manual update stays the fallback.
 
 Cloud features (schedules, scenes, users, voice assistants) are not reproduced: Home Assistant does them
 better.
