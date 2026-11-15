@@ -151,7 +151,9 @@ pub fn start(shared: Arc<Shared>, ha: HaConfig) -> Result<EspHttpServer<'static>
                     crate::restart_later();
                 }
                 Err(e) => {
-                    req.into_status_response(400)?.write_all(format!(r#"{{"error":{}}}"#, js(&e.to_string())).as_bytes())?;
+                    let msg = e.to_string();
+                    let code = if msg == crate::ota::OTA_BUSY_MSG { 409 } else { 400 };
+                    req.into_status_response(code)?.write_all(format!(r#"{{"error":{}}}"#, js(&msg)).as_bytes())?;
                 }
             }
             Ok(())

@@ -234,7 +234,31 @@ pub fn write_stream(size: usize, mut read: impl FnMut(&mut [u8]) -> Result<usize
 
 /// Erase the next OTA slot, answer "OK ready", copy `size` bytes from the same connection into the
 /// slot and select it for the next boot. (No socket cloning: lwIP on ESP-IDF does not support dup.)
+/// Only one OTA writer at a time (one-click installer, HTTP upload, TCP 7001): two interleaved
+/// begin/write sequences on the same slot would fail both and erase the rollback image.
+static OTA_BUSY: AtomicBool = AtomicBool::new(false);
+pub const OTA_BUSY_MSG: &str = "another firmware update is in progress";
+
+struct BusyGuard;
+
+impl BusyGuard {
+    fn take() -> Result<Self> {
+        OTA_BUSY
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map(|_| BusyGuard)
+            .map_err(|_| anyhow::anyhow!(OTA_BUSY_MSG))
+    }
+}
+
+impl Drop for BusyGuard {
+    fn drop(&mut self) {
+        OTA_BUSY.store(false, Ordering::SeqCst);
+    }
+}
+
 pub fn write_image<S: Read + Write>(s: &mut S, size: usize) -> Result<()> {
+    // released on every exit path (errors, `?`, panics) when the guard drops
+    let _busy = BusyGuard::take()?;
     unsafe {
         let part = sys::esp_ota_get_next_update_partition(std::ptr::null());
         if part.is_null() {
