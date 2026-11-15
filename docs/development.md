@@ -46,4 +46,4 @@ espflash flash --port COMx --bootloader $bl --partition-table partitions.csv --e
 ```
 
 Dev server (the page and the API on a simulated central, master mode): `cargo run -p airzone-sim --bin devserver`,
-then open http://127.0.0.1:8780.
+then open http://127.0.0.1:8780. Add `-- --fake-update 9.9.9` to show the update banner (installing is simulated).

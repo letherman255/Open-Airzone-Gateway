@@ -1,5 +1,6 @@
 //! Host dev server: the gateway web page and API on http://127.0.0.1:8780, backed by the simulated home
-//! central in master mode. `cargo run -p airzone-sim --bin devserver [port]`.
+//! central in master mode. `cargo run -p airzone-sim --bin devserver [port] [--fake-update VERSION]`.
+//! `--fake-update 9.9.9` seeds an available update so the page shows its banner; installing it is simulated.
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -38,12 +39,14 @@ fn now_ms(s: &State) -> u64 {
 }
 
 fn main() {
-    let port: u16 = std::env::args().nth(1).and_then(|p| p.parse().ok()).unwrap_or(8780);
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let port: u16 = args.first().and_then(|p| p.parse().ok()).unwrap_or(8780);
+    let fake_update = args.iter().position(|a| a == "--fake-update").and_then(|i| args.get(i + 1)).cloned();
     let mut master = Master::new(SimBus::new(vec![SimCentral::from_fixture(HOME, 1)]), Config::default());
     let topo = master.start(0).expect("simulated central").clone();
     let mut settings = Settings::default();
     settings.mode = Mode::Master;
-    let info = GatewayInfo {
+    let mut info = GatewayInfo {
         version: env!("CARGO_PKG_VERSION").into(),
         build: "dev".into(),
         board: "host-devserver".into(),
@@ -53,6 +56,10 @@ fn main() {
         master_running: true,
         ..Default::default()
     };
+    if let Some(v) = fake_update {
+        info.latest_url = Some(format!("https://example.org/airzone-gateway-{v}.bin"));
+        info.latest_version = Some(v);
+    }
     let gw = Gateway::new(settings, master.registry().clone(), topo, info, CATALOGUE);
     let st = Arc::new(Mutex::new(State { gw, master, start: Instant::now(), seq: 0 }));
 
@@ -81,6 +88,9 @@ fn main() {
                 if a == Action::Rediscover {
                     let _ = s.master.start(now);
                 }
+                if matches!(a, Action::InstallUpdate { .. }) {
+                    simulate_install(st.clone());
+                }
             }
         });
     }
@@ -93,6 +103,23 @@ fn main() {
             let _ = serve(c, st);
         });
     }
+}
+
+/// Simulated install: progress, installing, restarting, then the "new version" answers (no update left).
+fn simulate_install(st: Arc<Mutex<State>>) {
+    std::thread::spawn(move || {
+        let mut steps: Vec<String> = (0..=4).map(|i| format!("downloading {}%", i * 25)).collect();
+        steps.push("installing".into());
+        steps.push("restarting".into());
+        for step in steps {
+            st.lock().unwrap().gw.info.update_state = step;
+            std::thread::sleep(Duration::from_millis(1500));
+        }
+        let mut s = st.lock().unwrap();
+        s.gw.info.update_state.clear();
+        s.gw.info.latest_version = None;
+        s.gw.info.latest_url = None;
+    });
 }
 
 fn read_request(c: &mut TcpStream) -> Option<(String, String, Vec<(String, String)>, String)> {

@@ -24,7 +24,13 @@ const STRINGS = {
   backupTitle: "Installation backup", backup: "Download backup", restore: "Restore from file", confirmWords: "confirmation words (optional)",
   restoreResult: "Restore: {q} change(s) sent, {s} skipped.", restoreConfirm: "Dangerous settings in the file need their confirmation words (comma separated), or leave empty to skip them:",
   mode: "Bus mode", switchMaster: "Switch to master mode", switchListen: "Switch to listen mode",
-  updateAvailable: "Firmware {v} is available:", download: "download",
+  updateAvailable: "Firmware {v} is available", download: "download",
+  install: "Install", installConfirm: "Install firmware {v}? The gateway downloads it, checks it and restarts; this takes a few minutes. Do not unplug it.",
+  installNow: "Install now", installing: "Installing firmware {v}…", downloadingPct: "Downloading… {p}%", installingStep: "Installing…",
+  restarting: "The gateway is restarting…", updateFailed: "Update failed: {r}", retry: "Retry", installRefused: "Install refused: {e}",
+  checkUpdates: "Check for updates from the official releases",
+  checkUpdatesHelp: "When on, the gateway contacts letherman255.github.io once a day to look for a new firmware. Nothing is installed without your confirmation. The field below stays free for a custom manifest URL.",
+  savedNow: "Saved.",
   masterWarning: "Master mode makes the gateway the bus master. Unplug the Airzone webserver first: two masters on the bus corrupt each other's frames.",
   notBuilt: "This firmware is built without master mode.",
   zone: "Zone", master: "master zone", outlets: "Air outlets", none: "—", unknown: "unknown",
@@ -32,7 +38,8 @@ const STRINGS = {
 };
 const t = (k, v = {}) => (STRINGS[k] || k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? "");
 
-const state = { token: sessionStorage.getItem("azgw_token"), info: null, catalogue: [], systems: [], view: "gateway", zone: null, editing: false, open: new Set() };
+const OFFICIAL_MANIFEST = "https://letherman255.github.io/Open-Airzone-Gateway/ota.json";
+const state = { confirmInstall: false, polling: false, token: sessionStorage.getItem("azgw_token"), info: null, catalogue: [], systems: [], view: "gateway", zone: null, editing: false, open: new Set() };
 const $ = (s) => document.querySelector(s);
 const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -197,12 +204,79 @@ async function viewIaq(addr) {
   return el("div", {}, el("h2", {}, t("iaq")), sectioned(paramsFor("iaq", "iaq"), data && data.iaq, { system: addr }));
 }
 
+const updateRunning = (u) => !!u && !u.startsWith("failed");
+
+// The update banner: available / confirm / progress / restarting / failed. Rebuilt in place while polling.
+function updateBox() {
+  const i = state.info, u = i.update_state || "";
+  const box = el("div", { class: "warning", id: "updatebox" });
+  if (u.startsWith("failed")) {
+    box.append(el("b", {}, t("updateFailed", { r: u.replace(/^failed:?\s*/, "") })), " ");
+    if (state.token && i.latest_url) box.append(el("button", { type: "button", onclick: () => { state.confirmInstall = true; refreshUpdateBox(); } }, t("retry")));
+    return box;
+  }
+  if (u) {
+    const m = /^downloading (\d+)%/.exec(u);
+    box.append(t("installing", { v: i.latest_version || "" }), " ", el("b", {}, m ? t("downloadingPct", { p: m[1] }) : u === "restarting" ? t("restarting") : t("installingStep")));
+    return box;
+  }
+  if (!i.latest_version || !i.latest_url) return null;
+  box.append(t("updateAvailable", { v: i.latest_version }), " ");
+  if (state.token && state.confirmInstall) {
+    box.append(el("div", {}, t("installConfirm", { v: i.latest_version })), el("div", { class: "row" },
+      el("button", { class: "danger", type: "button", onclick: startInstall }, t("installNow")),
+      el("button", { type: "button", onclick: () => { state.confirmInstall = false; refreshUpdateBox(); } }, t("cancel"))));
+    return box;
+  }
+  if (state.token) box.append(el("button", { class: "primary", type: "button", onclick: () => { state.confirmInstall = true; refreshUpdateBox(); } }, t("install")), " ");
+  box.append(el("a", { href: i.latest_url, rel: "noopener" }, t("download")));
+  return box;
+}
+
+function refreshUpdateBox() {
+  const old = document.getElementById("updatebox"), nb = updateBox();
+  if (old && nb) old.replaceWith(nb); else if (old) old.remove(); else if (nb && state.view === "gateway") $("#main").prepend(nb);
+}
+
+async function startInstall() {
+  state.confirmInstall = false;
+  const r = await api("POST", "update/install");
+  if (r.status !== 202) { toast(t("installRefused", { e: (r.data && r.data.error) || "HTTP " + r.status })); refreshUpdateBox(); return; }
+  state.info.update_state = "downloading 0%";
+  refreshUpdateBox();
+  pollUpdate();
+}
+
+// Poll /info every 2 s while an install runs; after the restart, reload once the gateway answers again.
+async function pollUpdate() {
+  if (state.polling) return;
+  state.polling = true;
+  let restarted = false, idle = 0;
+  try {
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 2000));
+      let info = null;
+      try { info = (await api("GET", "info")).data; } catch { if (restarted) continue; }
+      if (!info) { if (restarted) continue; else break; }
+      const u = info.update_state || "";
+      if (restarted && u !== "restarting") { location.reload(); return; }
+      state.info = info;
+      if (u === "restarting") restarted = true;
+      refreshUpdateBox();
+      if (u.startsWith("failed")) break;
+      if (!u) { if (!info.latest_version) { location.reload(); return; } if (++idle >= 5) break; }
+    }
+  } finally { state.polling = false; }
+}
+
 async function viewGateway() {
   const i = state.info;
   const rows = [["Firmware", `${i.version} (build ${i.build})`], ["Board", i.board], ["MAC", i.mac], ["IP", i.ip], [t("mode"), i.mode],
     ["MQTT", i.mqtt_configured ? (i.mqtt_connected ? "connected" : "not connected") : "not configured"], ["Uptime", i.uptime_s + " s"], ["Time", i.time || t("none")]];
   const out = el("div", {}, el("h2", {}, t("gateway")), el("table", {}, rows.map(([k, v]) => el("tr", {}, el("th", {}, k), el("td", {}, v)))));
-  if (i.latest_version && i.latest_url) out.prepend(el("div", { class: "warning" }, t("updateAvailable", { v: i.latest_version }), " ", el("a", { href: i.latest_url, rel: "noopener" }, t("download"))));
+  const ub = updateBox();
+  if (ub) out.prepend(ub);
+  if (updateRunning(i.update_state)) pollUpdate();
   if (!state.token) return out;
   // mode
   const modeBox = el("div", {}, el("h2", {}, t("mode")));
@@ -238,7 +312,17 @@ async function viewGateway() {
   const s = (await api("GET", "settings")).data || {};
   const fields = ["wifi_ssid", "wifi_pass", "mqtt_url", "mqtt_user", "mqtt_pass", "mqtt_prefix", "gateway_name", "timezone", "update_manifest"];
   const inputs = Object.fromEntries(fields.map((f) => [f, el("input", { value: f.endsWith("pass") ? "" : (s[f] || ""), type: f.endsWith("pass") ? "password" : "text", placeholder: f.endsWith("pass") && s[f] ? "•••• (unchanged)" : "" })]));
-  out.append(el("h2", {}, t("network")), el("table", {}, fields.map((f) => el("tr", {}, el("th", {}, f), el("td", {}, inputs[f])))),
+  const check = el("input", { type: "checkbox", id: "checkupdates", checked: s.update_manifest === OFFICIAL_MANIFEST });
+  check.addEventListener("change", async () => {
+    const v = check.checked ? OFFICIAL_MANIFEST : "";
+    inputs.update_manifest.value = v;
+    const r = await api("POST", "settings", { update_manifest: v });
+    toast(r.status === 200 ? t("savedNow") : r.data.error);
+  });
+  inputs.update_manifest.addEventListener("input", () => (check.checked = inputs.update_manifest.value === OFFICIAL_MANIFEST));
+  out.append(el("h2", {}, t("network")),
+    el("div", { class: "row" }, el("label", {}, check, " ", t("checkUpdates"))), el("p", { class: "muted" }, t("checkUpdatesHelp")),
+    el("table", {}, fields.map((f) => el("tr", {}, el("th", {}, f), el("td", {}, inputs[f])))),
     el("div", { class: "row" }, el("button", { class: "primary", type: "button", onclick: async () => {
       const body = {}; for (const f of fields) if (!(f.endsWith("pass") && !inputs[f].value)) body[f] = inputs[f].value;
       const r = await api("POST", "settings", body); toast(r.status === 200 ? t("saved") : r.data.error);
