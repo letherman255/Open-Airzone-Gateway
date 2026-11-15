@@ -1,0 +1,30 @@
+[package]
+name = "airzone-gateway"
+version = "0.2.0"
+edition = "2021"
+license = "MIT"
+description = "Open Airzone gateway firmware (ESP32-S3)"
+
+[[bin]]
+name = "airzone-gateway"
+harness = false
+
+[profile.release]
+opt-level = "s"
+
+[profile.dev]
+debug = true
+opt-level = "z"
+
+[features]
+# Bus master mode (UART TX + DE). Off for boards wired next to the stock webserver.
+master = []
+
+[dependencies]
+log = "0.4"
+anyhow = "1"
+esp-idf-svc = "0.53"
+airzone-core = { path = "../core" }
+
+[build-dependencies]
+embuild = "0.33"

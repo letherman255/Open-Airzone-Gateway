@@ -1,0 +1,19 @@
+# Waveshare ESP32-S3-RS485-CAN: 16 MB flash, console on the native USB.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# partitions.csv is given to espflash at flash time (docs/development.md), not built here
+
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=10000
+# 1 ms ticks so the UART loop can poll at millisecond resolution.
+CONFIG_FREERTOS_HZ=1000
+
+CONFIG_LWIP_LOCAL_HOSTNAME="airzone-gw"
+
+# A new OTA image boots "pending verify" and must confirm itself, else rollback.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+
+# WebSocket on the HTTP server (/api/v1/ws)
+CONFIG_HTTPD_WS_SUPPORT=y
+CONFIG_HTTPD_MAX_URI_LEN=256

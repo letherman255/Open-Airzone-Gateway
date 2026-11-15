@@ -1,0 +1,38 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v5
+      - name: Rust tests (core + simulator)
+        run: cargo test --workspace
+      - name: Catalogue, generated files, OpenAPI, docs
+        run: uv run --project catalogue pytest catalogue -q
+
+  firmware:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - board: waveshare-esp32s3-rs485
+            features: ""
+          - board: waveshare-esp32s3-rs485
+            features: "--features master"
+          - board: generic-esp32-max485
+            features: "--features master"
+            pins: "AZ_PIN_RX=16 AZ_PIN_TX=17 AZ_PIN_DE=4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          ldproxy: true
+      - name: Build ${{ matrix.board }} ${{ matrix.features }}
+        working-directory: firmware/esp
+        run: env AZ_BOARD=${{ matrix.board }} ${{ matrix.pins }} cargo build --release --target-dir target ${{ matrix.features }}

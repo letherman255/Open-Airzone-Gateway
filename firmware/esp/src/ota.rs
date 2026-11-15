@@ -1,0 +1,224 @@
+//! OTA over Wi-Fi on TCP 7001 (protocol unchanged from the sniffer):
+//!   client -> "AZOTA1 <token> <size>\n"; server -> "OK ready\n"; client -> image; server -> "OK done, rebooting\n" | "ERR …"
+//! A new image boots "pending verify". It is confirmed only by a successful authenticated probe
+//! (`AZOTA1 <token> 0`, sent by tools/ota_upload.py after an upload), which proves the OTA path of the
+//! new image works; without it the board resets after OTA_CONFIRM_S and the bootloader rolls back.
+
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+use anyhow::Result;
+use esp_idf_svc::sys;
+
+pub const OTA_PORT: u16 = 7001;
+pub const OTA_CONFIRM_S: u64 = 180;
+static APP_VALID: AtomicBool = AtomicBool::new(false);
+
+pub fn pending_verify() -> bool {
+    unsafe {
+        let running = sys::esp_ota_get_running_partition();
+        let mut st: sys::esp_ota_img_states_t = 0;
+        sys::esp_ota_get_state_partition(running, &mut st) == sys::ESP_OK
+            && st == sys::esp_ota_img_states_t_ESP_OTA_IMG_PENDING_VERIFY
+    }
+}
+
+/// Reset (→ bootloader rollback) if the image is not confirmed in time.
+pub fn start_guard() -> Result<()> {
+    if !pending_verify() {
+        return Ok(());
+    }
+    log::warn!("new OTA image, pending verify: must confirm within {OTA_CONFIRM_S} s");
+    std::thread::Builder::new().name("ota-guard".into()).stack_size(3 * 1024).spawn(|| {
+        std::thread::sleep(Duration::from_secs(OTA_CONFIRM_S));
+        if !APP_VALID.load(Ordering::SeqCst) {
+            log::error!("image not confirmed, resetting -> bootloader rollback");
+            unsafe { sys::esp_restart() };
+        }
+    })?;
+    Ok(())
+}
+
+fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+pub fn server(token: String) {
+    let listener = loop {
+        match TcpListener::bind(("0.0.0.0", OTA_PORT)) {
+            Ok(l) => break l,
+            Err(e) => {
+                log::warn!("OTA bind failed: {e}");
+                std::thread::sleep(Duration::from_secs(2));
+            }
+        }
+    };
+    if !pending_verify() {
+        APP_VALID.store(true, Ordering::SeqCst);
+    }
+    log::info!("OTA server on port {OTA_PORT} (image confirmed: {})", APP_VALID.load(Ordering::SeqCst));
+    if token.len() < 16 {
+        log::warn!("no OTA token configured: TCP OTA disabled");
+    }
+    for conn in listener.incoming() {
+        let Ok(mut s) = conn else { continue };
+        if token.len() < 16 {
+            let _ = writeln!(s, "ERR OTA disabled");
+            continue;
+        }
+        match session(&mut s, &token) {
+            Ok(Outcome::Probe) => match confirm() {
+                Ok(build) => {
+                    let _ = writeln!(s, "OK probe build={build}");
+                }
+                Err(e) => {
+                    let _ = writeln!(s, "ERR probe: {e}");
+                }
+            },
+            Ok(Outcome::Updated) => {
+                log::info!("OTA complete, rebooting");
+                let _ = writeln!(s, "OK done, rebooting");
+                let _ = s.flush();
+                std::thread::sleep(Duration::from_millis(500));
+                unsafe { sys::esp_restart() };
+            }
+            Err(e) => {
+                log::warn!("OTA failed: {e}");
+                let _ = writeln!(s, "ERR {e}");
+            }
+        }
+    }
+}
+
+enum Outcome {
+    Probe,
+    Updated,
+}
+
+/// Confirm the running image after an authenticated probe (TCP 7001) or `POST /api/v1/ota/confirm`:
+/// checks the OTA slot, cancels the rollback, returns the build id.
+pub fn confirm() -> Result<String> {
+    slot_ready()?;
+    if !APP_VALID.load(Ordering::SeqCst) {
+        let ok = unsafe { sys::esp_ota_mark_app_valid_cancel_rollback() } == sys::ESP_OK;
+        APP_VALID.store(ok, Ordering::SeqCst);
+        log::info!("OTA confirm: running image confirmed = {ok}");
+        if !ok {
+            anyhow::bail!("could not confirm the image");
+        }
+    }
+    Ok(crate::BUILD_UNIX.to_string())
+}
+
+/// The next OTA slot exists and can hold an image as large as the running one (no erase here: the
+/// slot holds the rollback image).
+fn slot_ready() -> Result<()> {
+    unsafe {
+        let next = sys::esp_ota_get_next_update_partition(std::ptr::null());
+        let running = sys::esp_ota_get_running_partition();
+        if next.is_null() || running.is_null() {
+            anyhow::bail!("no OTA slot");
+        }
+        if (*next).size < (*running).size {
+            anyhow::bail!("OTA slot too small");
+        }
+    }
+    Ok(())
+}
+
+fn session(s: &mut TcpStream, token: &str) -> Result<Outcome> {
+    // short header timeout: an idle client must not hold the port during the confirm window
+    s.set_read_timeout(Some(Duration::from_secs(3)))?;
+    let mut hdr = Vec::with_capacity(96);
+    let mut b = [0u8; 1];
+    loop {
+        s.read_exact(&mut b)?;
+        if b[0] == b'\n' {
+            break;
+        }
+        hdr.push(b[0]);
+        if hdr.len() > 128 {
+            anyhow::bail!("header too long");
+        }
+    }
+    let hdr = String::from_utf8(hdr)?;
+    let mut it = hdr.trim().split(' ');
+    if it.next() != Some("AZOTA1") {
+        anyhow::bail!("bad magic");
+    }
+    if !ct_eq(it.next().unwrap_or("").as_bytes(), token.as_bytes()) {
+        std::thread::sleep(Duration::from_secs(2));
+        anyhow::bail!("bad token");
+    }
+    let size: usize = it.next().ok_or_else(|| anyhow::anyhow!("missing size"))?.parse()?;
+    if size == 0 {
+        return Ok(Outcome::Probe);
+    }
+    s.set_read_timeout(Some(Duration::from_secs(20)))?;
+    write_image(s, size)?;
+    Ok(Outcome::Updated)
+}
+
+/// Copy `size` bytes produced by `read` into the next OTA slot and select it (HTTP upload path).
+pub fn write_stream(size: usize, mut read: impl FnMut(&mut [u8]) -> Result<usize>) -> Result<()> {
+    struct R<F>(F);
+    impl<F: FnMut(&mut [u8]) -> Result<usize>> Read for R<F> {
+        fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
+            (self.0)(b).map_err(|e| std::io::Error::other(e.to_string()))
+        }
+    }
+    impl<F> Write for R<F> {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    write_image(&mut R(&mut read), size)
+}
+
+/// Erase the next OTA slot, answer "OK ready", copy `size` bytes from the same connection into the
+/// slot and select it for the next boot. (No socket cloning: lwIP on ESP-IDF does not support dup.)
+pub fn write_image<S: Read + Write>(s: &mut S, size: usize) -> Result<()> {
+    unsafe {
+        let part = sys::esp_ota_get_next_update_partition(std::ptr::null());
+        if part.is_null() {
+            anyhow::bail!("no OTA slot");
+        }
+        let slot = (*part).size as usize;
+        if size > slot {
+            anyhow::bail!("bad size {size} (slot {slot})");
+        }
+        let mut h: sys::esp_ota_handle_t = 0;
+        sys::esp!(sys::esp_ota_begin(part, size, &mut h))?;
+        if let Err(e) = writeln!(s, "OK ready") {
+            sys::esp_ota_abort(h);
+            return Err(e.into());
+        }
+        let mut buf = vec![0u8; 4096];
+        let mut done = 0usize;
+        let copied: Result<()> = (|| {
+            while done < size {
+                let want = buf.len().min(size - done);
+                let n = s.read(&mut buf[..want])?;
+                if n == 0 {
+                    anyhow::bail!("connection closed at {done}/{size}");
+                }
+                sys::esp!(sys::esp_ota_write(h, buf.as_ptr() as *const _, n))?;
+                done += n;
+            }
+            Ok(())
+        })();
+        if let Err(e) = copied {
+            sys::esp_ota_abort(h);
+            return Err(e);
+        }
+        // esp_ota_end verifies the image (header, checksum, SHA-256) before we switch to it.
+        sys::esp!(sys::esp_ota_end(h))?;
+        sys::esp!(sys::esp_ota_set_boot_partition(part))?;
+    }
+    Ok(())
+}

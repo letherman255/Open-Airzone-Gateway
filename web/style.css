@@ -1,0 +1,49 @@
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1d232b; --muted: #66707d; --line: #dde1e6;
+  --accent: #1f6feb; --ok: #1a7f37; --warn: #b35900; --danger: #c62828; --dangerbg: #fdecec; --banner: #f08c00;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111418; --panel: #1a1f25; --text: #e6e9ed; --muted: #98a2ad; --line: #2c333b;
+    --accent: #4c8dff; --ok: #3fb950; --warn: #e0912f; --danger: #ff6b6b; --dangerbg: #3a1d1d; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.brand { font-weight: 600; font-size: 1.05rem; }
+.badge { font-size: .75rem; font-weight: 600; padding: .1rem .5rem; border-radius: 1rem; border: 1px solid var(--line); margin-left: .4rem; }
+.badge.master { color: var(--ok); border-color: var(--ok); }
+.badge.listen { color: var(--warn); border-color: var(--warn); }
+#devbanner { background: var(--banner); color: #000; font-weight: 600; text-align: center; padding: .35rem 1rem; }
+nav { display: flex; gap: .25rem; padding: .5rem 1rem 0; overflow-x: auto; }
+nav button { border: 1px solid var(--line); border-bottom: none; background: transparent; color: var(--text); padding: .5rem .9rem; border-radius: .5rem .5rem 0 0; cursor: pointer; white-space: nowrap; }
+nav button.active { background: var(--panel); font-weight: 600; }
+main { background: var(--panel); margin: 0 1rem 1rem; border: 1px solid var(--line); border-radius: 0 .5rem .5rem .5rem; padding: 1rem; min-height: 50vh; }
+h2 { font-size: 1.1rem; margin: 1.2rem 0 .5rem; }
+h2:first-child { margin-top: 0; }
+h3 { font-size: .95rem; margin: 1rem 0 .3rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: .45rem .4rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+th { color: var(--muted); font-weight: 500; }
+td.val { font-variant-numeric: tabular-nums; }
+td.edit { width: 1%; white-space: nowrap; }
+.muted { color: var(--muted); }
+.error { color: var(--danger); }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+input, select { font: inherit; padding: .3rem .4rem; border: 1px solid var(--line); border-radius: .3rem; background: var(--bg); color: var(--text); max-width: 12rem; }
+button { font: inherit; padding: .35rem .8rem; border-radius: .35rem; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+button:disabled { opacity: .5; cursor: default; }
+details.advanced { margin-top: 1.2rem; border: 1px solid var(--danger); border-radius: .5rem; padding: .3rem .8rem; }
+details.advanced summary { cursor: pointer; color: var(--danger); font-weight: 600; padding: .3rem 0; }
+.warning { background: var(--dangerbg); color: var(--danger); border-radius: .35rem; padding: .5rem .6rem; margin: .3rem 0; font-size: .9rem; }
+.zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .7rem; }
+.zone { border: 1px solid var(--line); border-radius: .5rem; padding: .7rem; cursor: pointer; background: var(--bg); }
+.zone .t { font-size: 1.6rem; font-weight: 600; }
+.zone.off { opacity: .6; }
+#toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: .5rem 1rem; border-radius: .4rem; max-width: 90vw; }
+dialog { border: 1px solid var(--line); border-radius: .6rem; background: var(--panel); color: var(--text); max-width: 26rem; width: calc(100vw - 2rem); }
+dialog label { display: block; margin: .6rem 0; }
+dialog input { max-width: 100%; width: 100%; }
+code { font-size: .85em; }
+@media (max-width: 600px) { main { margin: 0 .5rem .5rem; padding: .7rem; } nav { padding: .4rem .5rem 0; } td.edit { white-space: normal; } }

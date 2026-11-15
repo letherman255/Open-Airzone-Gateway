@@ -1,0 +1,8 @@
+# Release builds (CI): app images are signed (RSA-3072, secure boot v2 scheme, without enabling
+# hardware secure boot). A signed running image only accepts signed OTA updates.
+# Use with: ESP_IDF_SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.release" and sign the image with
+# espsecure.py sign_data --version 2 --keyfile <key> (key kept in a CI secret, never in the repository).
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=n

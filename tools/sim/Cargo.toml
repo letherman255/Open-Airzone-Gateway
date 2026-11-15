@@ -1,0 +1,10 @@
+[package]
+name = "airzone-sim"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Simulated Airzone central for tests"
+
+[dependencies]
+airzone-core = { path = "../../firmware/core" }
+serde_json = "1"

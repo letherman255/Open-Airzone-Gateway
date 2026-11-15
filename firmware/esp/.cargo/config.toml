@@ -1,0 +1,18 @@
+[build]
+target = "xtensa-esp32s3-espidf"
+# On Windows, ESP-IDF's CMake build is fragile with long paths: set CARGO_TARGET_DIR to a short one
+# (for example C:/azt). See docs/development.md.
+
+[target.xtensa-esp32s3-espidf]
+linker = "ldproxy"
+runner = "espflash flash --monitor"
+rustflags = ["--cfg", "espidf_time64"]
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+[env]
+MCU = "esp32s3"
+# this crate sits under the host workspace root: point esp-idf-sys at our sdkconfig files explicitly
+ESP_IDF_SDKCONFIG_DEFAULTS = { value = "sdkconfig.defaults", relative = true }
+ESP_IDF_TOOLS_INSTALL_DIR = "global"

@@ -1,0 +1,1396 @@
+# Airzone register catalogue: the single source of truth.
+# Zone and outlet `reg` are offsets in their block; system and iaq `reg` are absolute.
+# Evidence rows refer to docs/reverse-engineering.md (tests of 2026-11-05/06).
+
+[[param]]
+id = "zone.power"
+scope = "zone"
+reg = 0x0000
+bits = "2-2"
+kind = "bool"
+access = "rw"
+tier = 1
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+ha = { component = "climate", role = "power" }
+ui = { screen = "zones", section = "Zone", order = 10, label = "Power" }
+
+[[param]]
+id = "zone.sleep"
+scope = "zone"
+reg = 0x0000
+bits = "6-7"
+kind = "enum"
+access = "rw"
+tier = 1
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+values = { 0 = "off", 1 = "30 min", 2 = "60 min", 3 = "90 min" }
+ha = { component = "select", role = "sleep" }
+ui = { screen = "zones", section = "Zone", order = 40, label = "Sleep timer" }
+
+[[param]]
+id = "zone.mode"
+scope = "zone"
+reg = 0x0000
+bits = "8-11"
+kind = "enum"
+access = "rw"
+tier = 1
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+values = { 0 = "stop", 3 = "fan", 5 = "heat", 6 = "dry", 9 = "cool" }
+ha = { component = "climate", role = "hvac_mode" }
+ui = { screen = "zones", section = "Zone", order = 20, label = "Mode (whole system)" }
+
+[[param]]
+id = "zone.basic_mode"
+scope = "zone"
+reg = 0x0000
+bits = "15-15"
+kind = "bool"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+ha = { component = "switch", role = "basic_mode" }
+ui = { screen = "zones", section = "Settings", order = 50, label = "Basic mode" }
+
+[[param]]
+id = "zone.setpoint_min"
+scope = "zone"
+reg = 0x0001
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.1
+unit = "°C"
+ha = { component = "climate", role = "min_temp" }
+ui = { screen = "zones", section = "Zone", order = 31, label = "Setpoint minimum" }
+
+[[param]]
+id = "zone.setpoint_max"
+scope = "zone"
+reg = 0x0002
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.1
+unit = "°C"
+ha = { component = "climate", role = "max_temp" }
+ui = { screen = "zones", section = "Zone", order = 32, label = "Setpoint maximum" }
+
+[[param]]
+id = "zone.setpoint"
+scope = "zone"
+reg = 0x0003
+bits = "0-15"
+kind = "number"
+access = "rw"
+tier = 1
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 0.1
+unit = "°C"
+min = 5
+max = 35
+ha = { component = "climate", role = "target_temperature" }
+ui = { screen = "zones", section = "Zone", order = 30, label = "Setpoint" }
+
+[[param]]
+id = "zone.master"
+scope = "zone"
+reg = 0x0004
+bits = "0-0"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+danger = { level = "medium", warning = "Moves the master zone (the zone that carries the machine mode). Only a re-write on the current master has been tested; clearing it leaves the system without a master zone.", confirm = "MASTER" }
+ui = { screen = "zones", section = "Settings", order = 10, label = "Master zone" }
+
+[[param]]
+id = "zone.heat_stage_air"
+scope = "zone"
+reg = 0x0004
+bits = "1-1"
+kind = "bool"
+access = "r"
+tier = 3
+confidence = "matched"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+# stock write clears bits 1 and 9 together (mask FDFD): read-only until the stage pair is modelled
+ui = { screen = "zones", section = "Stages", order = 20, label = "Heat stage: air" }
+
+[[param]]
+id = "zone.antifreeze"
+scope = "zone"
+reg = 0x0004
+bits = "4-4"
+kind = "bool"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+ha = { component = "switch", role = "antifreeze" }
+ui = { screen = "zones", section = "Settings", order = 40, label = "Antifreeze" }
+
+[[param]]
+id = "zone.temperature"
+scope = "zone"
+reg = 0x0008
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.1
+unit = "°C"
+ha = { component = "climate", role = "current_temperature" }
+ui = { screen = "zones", section = "Zone", order = 50, label = "Temperature (probe)" }
+
+[[param]]
+id = "zone.air_demand"
+scope = "zone"
+reg = 0x0009
+bits = "7-7"
+kind = "bool"
+access = "r"
+tier = 1
+confidence = "matched"
+ha = { component = "binary_sensor", role = "air_demand" }
+ui = { screen = "zones", section = "Zone", order = 60, label = "Air demand" }
+
+[[param]]
+id = "zone.thermostat_temperature"
+scope = "zone"
+reg = 0x000A
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.1
+unit = "°C"
+ha = { component = "sensor", role = "thermostat_temperature" }
+ui = { screen = "zones", section = "Zone", order = 51, label = "Temperature (thermostat)" }
+
+[[param]]
+id = "zone.thermostat_fw"
+scope = "zone"
+reg = 0x000C
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ha = { component = "sensor", role = "thermostat_fw" }
+ui = { screen = "zones", section = "Information", order = 10, label = "Thermostat firmware" }
+
+[[param]]
+id = "zone.errors"
+scope = "zone"
+reg = 0x000D
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ha = { component = "sensor", role = "errors" }
+ui = { screen = "zones", section = "Information", order = 20, label = "Error flags" }
+
+[[param]]
+id = "zone.name"
+scope = "zone"
+reg = 0x000E
+bits = "0-15"
+kind = "text"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+length = 6
+ha = { component = "text", role = "name" }
+ui = { screen = "zones", section = "Settings", order = 5, label = "Name" }
+
+[[param]]
+id = "zone.cool_stage"
+scope = "zone"
+reg = 0x0016
+bits = "5-6"
+kind = "enum"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+values = { 0 = "off", 1 = "air" }
+ui = { screen = "zones", section = "Stages", order = 10, label = "Cool stage" }
+
+[[param]]
+id = "zone.humidity"
+scope = "zone"
+reg = 0x001F
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+unit = "%"
+ha = { component = "climate", role = "current_humidity" }
+ui = { screen = "zones", section = "Zone", order = 55, label = "Humidity" }
+
+[[param]]
+id = "zone.offset_cool"
+scope = "zone"
+reg = 0x0020
+bits = "0-3"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+scale = 0.5
+offset = -2.5
+unit = "°C"
+min = -2.5
+max = 2.5
+ha = { component = "number", role = "offset_cool" }
+ui = { screen = "zones", section = "Settings", order = 20, label = "Temperature offset (cool)" }
+
+[[param]]
+id = "zone.offset_heat"
+scope = "zone"
+reg = 0x0020
+bits = "4-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+scale = 0.5
+offset = -2.5
+unit = "°C"
+min = -2.5
+max = 2.5
+ha = { component = "number", role = "offset_heat" }
+ui = { screen = "zones", section = "Settings", order = 21, label = "Temperature offset (heat)" }
+
+[[param]]
+id = "zone.ionizer_mode"
+scope = "zone"
+reg = 0x0039
+bits = "0-1"
+kind = "enum"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+requires = "ionizer"
+values = { 0 = "off", 1 = "on", 2 = "auto" }
+ha = { component = "select", role = "ionizer" }
+ui = { screen = "zones", section = "Settings", order = 30, label = "Ionizer" }
+
+[[param]]
+id = "zone.ionizer_running"
+scope = "zone"
+reg = 0x0039
+bits = "4-4"
+kind = "bool"
+access = "r"
+tier = 1
+confidence = "matched"
+requires = "ionizer"
+ha = { component = "binary_sensor", role = "ionizer_running" }
+ui = { screen = "zones", section = "Zone", order = 70, label = "Ionizer running" }
+
+[[param]]
+id = "system.machine_mode"
+scope = "system"
+reg = 0x0000
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ui = { screen = "system.info", section = "Indoor unit", order = 10, label = "Machine mode word" }
+
+[[param]]
+id = "system.eco"
+scope = "system"
+reg = 0x0003
+bits = "2-4"
+kind = "enum"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+values = { 0 = "off", 2 = "a" }
+ha = { component = "select", role = "eco" }
+ui = { screen = "system.config", section = "System", order = 60, label = "Eco" }
+
+[[param]]
+id = "system.proportional_opening"
+scope = "system"
+reg = 0x0003
+bits = "13-13"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "Air flow", order = 20, label = "Proportional opening" }
+
+[[param]]
+id = "system.auto_dst"
+scope = "system"
+reg = 0x0004
+bits = "15-15"
+kind = "bool"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+ha = { component = "switch", role = "auto_dst" }
+ui = { screen = "system.config", section = "System", order = 40, label = "Automatic daylight saving time" }
+
+[[param]]
+id = "system.centralized_controller"
+scope = "system"
+reg = 0x0007
+bits = "0-0"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+danger = { level = "medium", warning = "Meaning of this setting is not fully established (cloud name gw_duplex_mode).", confirm = "CONTROLLER" }
+ui = { screen = "system.config", section = "System", order = 20, label = "Centralized controller" }
+
+[[param]]
+id = "system.zones_present_1_16"
+scope = "system"
+reg = 0x0009
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ui = { screen = "system.info", section = "System", order = 30, label = "Zones present 1-16" }
+
+[[param]]
+id = "system.zones_present_17_32"
+scope = "system"
+reg = 0x000A
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ui = { screen = "system.info", section = "System", order = 31, label = "Zones present 17-32" }
+
+[[param]]
+id = "system.easyzone_mode"
+scope = "system"
+reg = 0x000C
+bits = "10-10"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "System", order = 10, label = "Easyzone mode" }
+
+[[param]]
+id = "system.relay_o1"
+scope = "system"
+reg = 0x000C
+bits = "15-15"
+kind = "bool"
+access = "rw"
+tier = 1
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+ha = { component = "switch", role = "relay_o1" }
+ui = { screen = "system.config", section = "Inputs/Outputs", order = 10, label = "Relay O1" }
+
+[[param]]
+id = "system.relay_o2"
+scope = "system"
+reg = 0x000E
+bits = "13-13"
+kind = "bool"
+access = "rw"
+tier = 1
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+ha = { component = "switch", role = "relay_o2" }
+ui = { screen = "system.config", section = "Inputs/Outputs", order = 20, label = "Relay O2" }
+
+[[param]]
+id = "system.central_fw"
+scope = "system"
+reg = 0x0011
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ha = { component = "sensor", role = "central_fw" }
+ui = { screen = "system.info", section = "System", order = 20, label = "Central firmware" }
+
+[[param]]
+id = "system.cool_setpoint_min"
+scope = "system"
+reg = 0x0019
+bits = "0-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 0.1
+unit = "°C"
+min = 15
+max = 30
+ha = { component = "number", role = "cool_setpoint_min" }
+ui = { screen = "system.config", section = "Stages", order = 20, label = "Minimum temperature (cool)" }
+
+[[param]]
+id = "system.heat_setpoint_max"
+scope = "system"
+reg = 0x001A
+bits = "0-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 0.1
+unit = "°C"
+min = 15
+max = 30
+ha = { component = "number", role = "heat_setpoint_max" }
+ui = { screen = "system.config", section = "Stages", order = 40, label = "Maximum temperature (heat)" }
+
+[[param]]
+id = "system.cai_priority"
+scope = "system"
+reg = 0x0038
+bits = "13-13"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "System", order = 50, label = "IAQ priority" }
+
+[[param]]
+id = "system.radio_channel"
+scope = "system"
+reg = 0x003C
+bits = "3-3"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "System", order = 30, label = "Radio channel" }
+
+[[param]]
+id = "system.filter_reset"
+scope = "system"
+reg = 0x003C
+bits = "8-8"
+kind = "command"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+danger = { level = "medium", warning = "Restarts the filter maintenance counter; cannot be undone.", confirm = "RESET FILTER" }
+ui = { screen = "system.config", section = "System", order = 72, label = "Reset filter counter" }
+
+[[param]]
+id = "system.filter_warning"
+scope = "system"
+reg = 0x003C
+bits = "9-9"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "System", order = 70, label = "Filter maintenance warning" }
+
+[[param]]
+id = "system.qadapt"
+scope = "system"
+reg = 0x0048
+bits = "0-2"
+kind = "enum"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+values = { 0 = "standard", 1 = "power", 2 = "silent", 3 = "minimum", 4 = "maximum" }
+ha = { component = "select", role = "qadapt" }
+ui = { screen = "system.config", section = "Air flow", order = 10, label = "Q-Adapt" }
+
+[[param]]
+id = "system.d1_input"
+scope = "system"
+reg = 0x0048
+bits = "9-11"
+kind = "enum"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+values = { 0 = "disabled", 1 = "bridge alarm", 2 = "acoustic alarm NC", 3 = "acoustic alarm NO" }
+danger = { level = "high", warning = "Setting an alarm type with nothing wired raises a latched R32 leak alarm: all zones stop, thermostats beep, only a power cycle clears it.", confirm = "D1" }
+ui = { screen = "system.config", section = "Inputs/Outputs", order = 30, label = "DI1 input" }
+
+[[param]]
+id = "system.webserver_fw"
+scope = "system"
+reg = 0x0059
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ui = { screen = "system.info", section = "Gateway", order = 10, label = "Gateway firmware word" }
+
+[[param]]
+id = "system.modes_available"
+scope = "system"
+reg = 0x0055
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ui = { screen = "system.info", section = "Indoor unit", order = 20, label = "Available modes mask" }
+
+[[param]]
+id = "system.real_setpoint"
+scope = "system"
+reg = 0x006E
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.1
+unit = "°C"
+ha = { component = "sensor", role = "real_setpoint" }
+ui = { screen = "system.info", section = "Indoor unit", order = 30, label = "Indoor unit setpoint" }
+
+[[param]]
+id = "system.zones_in_demand"
+scope = "system"
+reg = 0x006F
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+ui = { screen = "system.info", section = "Indoor unit", order = 40, label = "Zones in demand" }
+
+[[param]]
+id = "system.standby_cool"
+scope = "system"
+reg = 0x0073
+bits = "0-0"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "Air flow", order = 30, label = "Standby (cool)" }
+
+[[param]]
+id = "system.standby_heat"
+scope = "system"
+reg = 0x0073
+bits = "1-1"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+ui = { screen = "system.config", section = "Air flow", order = 31, label = "Standby (heat)" }
+
+[[param]]
+id = "system.filter_hours"
+scope = "system"
+reg = 0x009B
+bits = "0-15"
+kind = "number"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+unit = "h"
+min = 100
+max = 5000
+ui = { screen = "system.config", section = "System", order = 71, label = "Filter operating hours" }
+
+[[param]]
+id = "iaq.fw"
+scope = "iaq"
+reg = 0x2100
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+requires = "iaq_present"
+ha = { component = "sensor", role = "iaq_fw" }
+ui = { screen = "iaq", section = "Information", order = 10, label = "Sensor firmware" }
+
+[[param]]
+id = "iaq.vmc"
+scope = "iaq"
+reg = 0x2101
+bits = "6-6"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+requires = "iaq_present"
+ui = { screen = "iaq", section = "Ventilation", order = 10, label = "Controlled mechanical ventilation (VMC)" }
+
+[[param]]
+id = "iaq.vent_continuous"
+scope = "iaq"
+reg = 0x2101
+bits = "7-7"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 20, label = "Continuous ventilation" }
+
+[[param]]
+id = "iaq.leds"
+scope = "iaq"
+reg = 0x2101
+bits = "8-8"
+kind = "bool"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+requires = "iaq_present"
+ha = { component = "switch", role = "iaq_leds" }
+ui = { screen = "iaq", section = "Information", order = 20, label = "Sensor LEDs" }
+
+[[param]]
+id = "iaq.factory_reset"
+scope = "iaq"
+reg = 0x2101
+bits = "9-9"
+kind = "command"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+requires = "iaq_present"
+danger = { level = "medium", warning = "Restores the sensor factory settings; re-enables the VMC.", confirm = "RESET SENSOR" }
+ui = { screen = "iaq", section = "Information", order = 90, label = "Restore factory settings" }
+
+[[param]]
+id = "iaq.renew_air"
+scope = "iaq"
+reg = 0x2101
+bits = "12-12"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 40, label = "Air renewal" }
+
+[[param]]
+id = "iaq.free_cooling"
+scope = "iaq"
+reg = 0x2101
+bits = "14-14"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 60, label = "Free cooling" }
+
+[[param]]
+id = "iaq.vmin"
+scope = "iaq"
+reg = 0x2102
+bits = "0-6"
+kind = "number"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 0.1
+unit = "V"
+min = 0
+max = 10
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 30, label = "VMC minimum voltage" }
+
+[[param]]
+id = "iaq.vmax"
+scope = "iaq"
+reg = 0x2102
+bits = "7-13"
+kind = "number"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 0.1
+unit = "V"
+min = 0
+max = 10
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 31, label = "VMC maximum voltage" }
+
+[[param]]
+id = "iaq.pm2_5"
+scope = "iaq"
+reg = 0x2105
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 1
+unit = "µg/m³"
+requires = "iaq_present"
+ha = { component = "sensor", role = "pm2_5" }
+ui = { screen = "iaq", section = "Measurements", order = 10, label = "PM2.5" }
+
+[[param]]
+id = "iaq.pm10"
+scope = "iaq"
+reg = 0x2106
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 1
+unit = "µg/m³"
+requires = "iaq_present"
+ha = { component = "sensor", role = "pm10" }
+ui = { screen = "iaq", section = "Measurements", order = 11, label = "PM10" }
+
+[[param]]
+id = "iaq.co2"
+scope = "iaq"
+reg = 0x2107
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 1
+unit = "ppm"
+requires = "iaq_present"
+ha = { component = "sensor", role = "co2" }
+ui = { screen = "iaq", section = "Measurements", order = 12, label = "CO2" }
+
+[[param]]
+id = "iaq.tvoc"
+scope = "iaq"
+reg = 0x2108
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 1
+unit = "ppb"
+requires = "iaq_present"
+ha = { component = "sensor", role = "tvoc" }
+ui = { screen = "iaq", section = "Measurements", order = 13, label = "TVOC" }
+
+[[param]]
+id = "iaq.humidity"
+scope = "iaq"
+reg = 0x2109
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 1
+unit = "%"
+requires = "iaq_present"
+ha = { component = "sensor", role = "humidity" }
+ui = { screen = "iaq", section = "Measurements", order = 14, label = "Humidity" }
+
+[[param]]
+id = "iaq.temperature"
+scope = "iaq"
+reg = 0x210A
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.1
+unit = "°C"
+requires = "iaq_present"
+ha = { component = "sensor", role = "temperature" }
+ui = { screen = "iaq", section = "Measurements", order = 15, label = "Temperature" }
+
+[[param]]
+id = "iaq.pressure"
+scope = "iaq"
+reg = 0x210B
+bits = "0-15"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 1
+unit = "hPa"
+requires = "iaq_present"
+ha = { component = "sensor", role = "pressure" }
+ui = { screen = "iaq", section = "Measurements", order = 16, label = "Pressure" }
+
+[[param]]
+id = "iaq.weight_rh"
+scope = "iaq"
+reg = 0x210C
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+unit = "%"
+min = 0
+max = 100
+requires = "iaq_present"
+ha = { component = "number", role = "weight_rh" }
+ui = { screen = "iaq", section = "Weights", order = 1, label = "Weight RH" }
+
+[[param]]
+id = "iaq.weight_co2"
+scope = "iaq"
+reg = 0x210C
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+unit = "%"
+min = 0
+max = 100
+requires = "iaq_present"
+ha = { component = "number", role = "weight_co2" }
+ui = { screen = "iaq", section = "Weights", order = 2, label = "Weight CO2" }
+
+[[param]]
+id = "iaq.weight_tvoc"
+scope = "iaq"
+reg = 0x210D
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+unit = "%"
+min = 0
+max = 100
+requires = "iaq_present"
+ha = { component = "number", role = "weight_tvoc" }
+ui = { screen = "iaq", section = "Weights", order = 3, label = "Weight TVOC" }
+
+[[param]]
+id = "iaq.weight_pm10"
+scope = "iaq"
+reg = 0x210D
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+unit = "%"
+min = 0
+max = 100
+requires = "iaq_present"
+ha = { component = "number", role = "weight_pm10" }
+ui = { screen = "iaq", section = "Weights", order = 4, label = "Weight PM10" }
+
+[[param]]
+id = "iaq.weight_pm2_5"
+scope = "iaq"
+reg = 0x210E
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+unit = "%"
+min = 0
+max = 100
+requires = "iaq_present"
+ha = { component = "number", role = "weight_pm2_5" }
+ui = { screen = "iaq", section = "Weights", order = 5, label = "Weight PM2_5" }
+
+[[param]]
+id = "iaq.weight_t"
+scope = "iaq"
+reg = 0x210F
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 AirTools app test, see docs/reverse-engineering.md"
+unit = "%"
+min = 0
+max = 100
+requires = "iaq_present"
+ha = { component = "number", role = "weight_t" }
+ui = { screen = "iaq", section = "Weights", order = 6, label = "Weight T" }
+
+[[param]]
+id = "iaq.heat_delta"
+scope = "iaq"
+reg = 0x210F
+bits = "8-11"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+unit = "°C"
+min = 0
+max = 15
+requires = "iaq_present"
+ha = { component = "number", role = "heat_delta" }
+ui = { screen = "iaq", section = "Thresholds", order = 1, label = "Temperature band (heat)" }
+
+[[param]]
+id = "iaq.cool_delta"
+scope = "iaq"
+reg = 0x210F
+bits = "12-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+unit = "°C"
+min = 0
+max = 15
+requires = "iaq_present"
+ha = { component = "number", role = "cool_delta" }
+ui = { screen = "iaq", section = "Thresholds", order = 2, label = "Temperature band (cool)" }
+
+[[param]]
+id = "iaq.rh_low_gm"
+scope = "iaq"
+reg = 0x2110
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 1
+unit = "%"
+requires = "iaq_present"
+ha = { component = "number", role = "rh_low_gm" }
+ui = { screen = "iaq", section = "Thresholds", order = 10, label = "RH LOW GOOD/MEDIUM" }
+
+[[param]]
+id = "iaq.rh_low_mb"
+scope = "iaq"
+reg = 0x2110
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 1
+unit = "%"
+requires = "iaq_present"
+ha = { component = "number", role = "rh_low_mb" }
+ui = { screen = "iaq", section = "Thresholds", order = 11, label = "RH LOW MEDIUM/BAD" }
+
+[[param]]
+id = "iaq.rh_high_gm"
+scope = "iaq"
+reg = 0x2111
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 1
+unit = "%"
+requires = "iaq_present"
+ha = { component = "number", role = "rh_high_gm" }
+ui = { screen = "iaq", section = "Thresholds", order = 12, label = "RH HIGH GOOD/MEDIUM" }
+
+[[param]]
+id = "iaq.rh_high_mb"
+scope = "iaq"
+reg = 0x2111
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 1
+unit = "%"
+requires = "iaq_present"
+ha = { component = "number", role = "rh_high_mb" }
+ui = { screen = "iaq", section = "Thresholds", order = 13, label = "RH HIGH MEDIUM/BAD" }
+
+[[param]]
+id = "iaq.co2_gm"
+scope = "iaq"
+reg = 0x2112
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 50
+unit = "ppm"
+requires = "iaq_present"
+ha = { component = "number", role = "co2_gm" }
+ui = { screen = "iaq", section = "Thresholds", order = 20, label = "CO2 GOOD/MEDIUM" }
+
+[[param]]
+id = "iaq.co2_mb"
+scope = "iaq"
+reg = 0x2112
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 50
+unit = "ppm"
+requires = "iaq_present"
+ha = { component = "number", role = "co2_mb" }
+ui = { screen = "iaq", section = "Thresholds", order = 21, label = "CO2 MEDIUM/BAD" }
+
+[[param]]
+id = "iaq.pm2_5_gm"
+scope = "iaq"
+reg = 0x2113
+bits = "0-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 1
+unit = "µg/m³"
+requires = "iaq_present"
+ha = { component = "number", role = "pm2_5_gm" }
+ui = { screen = "iaq", section = "Thresholds", order = 30, label = "PM2 5 GOOD/MEDIUM" }
+
+[[param]]
+id = "iaq.pm2_5_mb"
+scope = "iaq"
+reg = 0x2114
+bits = "0-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 1
+unit = "µg/m³"
+requires = "iaq_present"
+ha = { component = "number", role = "pm2_5_mb" }
+ui = { screen = "iaq", section = "Thresholds", order = 31, label = "PM2 5 MEDIUM/BAD" }
+
+[[param]]
+id = "iaq.pm10_gm"
+scope = "iaq"
+reg = 0x2115
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 10
+unit = "µg/m³"
+requires = "iaq_present"
+ha = { component = "number", role = "pm10_gm" }
+ui = { screen = "iaq", section = "Thresholds", order = 40, label = "PM10 GOOD/MEDIUM" }
+
+[[param]]
+id = "iaq.pm10_mb"
+scope = "iaq"
+reg = 0x2115
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 10
+unit = "µg/m³"
+requires = "iaq_present"
+ha = { component = "number", role = "pm10_mb" }
+ui = { screen = "iaq", section = "Thresholds", order = 41, label = "PM10 MEDIUM/BAD" }
+
+[[param]]
+id = "iaq.tvoc_gm"
+scope = "iaq"
+reg = 0x2116
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 10
+unit = "ppb"
+requires = "iaq_present"
+ha = { component = "number", role = "tvoc_gm" }
+ui = { screen = "iaq", section = "Thresholds", order = 50, label = "TVOC GOOD/MEDIUM" }
+
+[[param]]
+id = "iaq.tvoc_mb"
+scope = "iaq"
+reg = 0x2116
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 2
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+scale = 10
+unit = "ppb"
+requires = "iaq_present"
+ha = { component = "number", role = "tvoc_mb" }
+ui = { screen = "iaq", section = "Thresholds", order = 51, label = "TVOC MEDIUM/BAD" }
+
+[[param]]
+id = "iaq.score_t"
+scope = "iaq"
+reg = 0x2118
+bits = "0-9"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.125
+requires = "iaq_present"
+ha = { component = "sensor", role = "score_t" }
+ui = { screen = "iaq", section = "Measurements", order = 30, label = "Score T" }
+
+[[param]]
+id = "iaq.score_rh"
+scope = "iaq"
+reg = 0x2119
+bits = "0-9"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.125
+requires = "iaq_present"
+ha = { component = "sensor", role = "score_rh" }
+ui = { screen = "iaq", section = "Measurements", order = 31, label = "Score RH" }
+
+[[param]]
+id = "iaq.score_co2"
+scope = "iaq"
+reg = 0x211A
+bits = "0-9"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.125
+requires = "iaq_present"
+ha = { component = "sensor", role = "score_co2" }
+ui = { screen = "iaq", section = "Measurements", order = 32, label = "Score CO2" }
+
+[[param]]
+id = "iaq.score_pm2_5"
+scope = "iaq"
+reg = 0x211B
+bits = "0-9"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.125
+requires = "iaq_present"
+ha = { component = "sensor", role = "score_pm2_5" }
+ui = { screen = "iaq", section = "Measurements", order = 33, label = "Score PM2_5" }
+
+[[param]]
+id = "iaq.score_pm10"
+scope = "iaq"
+reg = 0x211C
+bits = "0-9"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.125
+requires = "iaq_present"
+ha = { component = "sensor", role = "score_pm10" }
+ui = { screen = "iaq", section = "Measurements", order = 34, label = "Score PM10" }
+
+[[param]]
+id = "iaq.score_tvoc"
+scope = "iaq"
+reg = 0x211D
+bits = "0-9"
+kind = "number"
+access = "r"
+tier = 1
+confidence = "matched"
+scale = 0.125
+requires = "iaq_present"
+ha = { component = "sensor", role = "score_tvoc" }
+ui = { screen = "iaq", section = "Measurements", order = 35, label = "Score TVOC" }
+
+[[param]]
+id = "iaq.hum_control"
+scope = "iaq"
+reg = 0x2119
+bits = "11-11"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 50, label = "Humidity control" }
+
+[[param]]
+id = "iaq.renew_interval"
+scope = "iaq"
+reg = 0x211F
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+unit = "min"
+min = 0
+max = 255
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 41, label = "Renewal interval" }
+
+[[param]]
+id = "iaq.renew_work_time"
+scope = "iaq"
+reg = 0x211F
+bits = "8-15"
+kind = "number"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-05 cloud/HA test, see docs/reverse-engineering.md"
+unit = "min"
+min = 0
+max = 255
+requires = "vmc_on"
+ui = { screen = "iaq", section = "Ventilation", order = 42, label = "Renewal work time" }
+
+[[param]]
+id = "outlet.zone"
+scope = "outlet"
+reg = 0x0000
+bits = "0-7"
+kind = "number"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+min = 0
+max = 32
+danger = { level = "medium", warning = "Links an air outlet to a zone. An outlet with no damper latches a hidden \"output disconnected\" warning until a power cycle.", confirm = "OUTLET" }
+ui = { screen = "zones", section = "Outlets", order = 10, label = "Linked zone (0 = none)" }
+
+[[param]]
+id = "outlet.heat_stage"
+scope = "outlet"
+reg = 0x0001
+bits = "4-4"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+danger = { level = "medium", warning = "Changes the stages served by this air outlet.", confirm = "OUTLET" }
+ui = { screen = "zones", section = "Outlets", order = 20, label = "Heat" }
+
+[[param]]
+id = "outlet.cool_stage"
+scope = "outlet"
+reg = 0x0001
+bits = "5-5"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+danger = { level = "medium", warning = "Changes the stages served by this air outlet.", confirm = "OUTLET" }
+ui = { screen = "zones", section = "Outlets", order = 21, label = "Cool" }
+
+[[param]]
+id = "outlet.fancoil"
+scope = "outlet"
+reg = 0x0001
+bits = "6-6"
+kind = "bool"
+access = "rw"
+tier = 3
+confidence = "confirmed"
+evidence = "2026-11-06 cloud test, see docs/reverse-engineering.md"
+danger = { level = "medium", warning = "Changes the stage setup (DX or fancoil) of this air outlet.", confirm = "OUTLET" }
+ui = { screen = "zones", section = "Outlets", order = 22, label = "Stage setup fancoil (off = DX)" }
+
+[[param]]
+id = "outlet.disconnected"
+scope = "outlet"
+reg = 0x0006
+bits = "2-2"
+kind = "bool"
+access = "r"
+tier = 1
+confidence = "matched"
+ha = { component = "binary_sensor", role = "outlet_disconnected" }
+ui = { screen = "zones", section = "Outlets", order = 30, label = "Disconnected" }

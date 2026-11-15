@@ -1,0 +1,61 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - board: waveshare-esp32s3-rs485
+            variant: master
+            features: "--features master"
+          - board: waveshare-esp32s3-rs485
+            variant: listen
+            features: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          ldproxy: true
+      - name: Build (signed-app configuration)
+        working-directory: firmware/esp
+        env:
+          AZ_BOARD: ${{ matrix.board }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/firmware/esp/sdkconfig.defaults;${{ github.workspace }}/firmware/esp/sdkconfig.release"
+        run: cargo build --release --target-dir target ${{ matrix.features }}
+      - name: Image and signature
+        working-directory: firmware/esp
+        env:
+          SIGNING_KEY: ${{ secrets.FIRMWARE_SIGNING_KEY }}
+        run: |
+          pip install esptool espflash==4.0.0 || cargo install espflash --locked
+          espflash save-image --chip esp32s3 target/xtensa-esp32s3-espidf/release/airzone-gateway app.bin
+          printf '%s' "$SIGNING_KEY" > key.pem
+          espsecure.py sign_data --version 2 --keyfile key.pem --output airzone-gateway-${{ matrix.board }}-${{ matrix.variant }}.bin app.bin
+          rm key.pem
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fw-${{ matrix.board }}-${{ matrix.variant }}
+          path: firmware/esp/airzone-gateway-*.bin
+
+  publish:
+    needs: firmware
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Web flasher manifest
+        run: python3 -c "import json,sys;json.dump({'name':'open-airzone-gateway','version':'${{ github.ref_name }}','builds':[{'chipFamily':'ESP32-S3','parts':[{'path':'airzone-gateway-waveshare-esp32s3-rs485-master.bin','offset':131072}]}]},open('dist/manifest.json','w'),indent=1)"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

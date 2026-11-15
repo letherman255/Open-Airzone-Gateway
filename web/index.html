@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Airzone gateway</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="devbanner" hidden></div>
+<header>
+  <div class="brand"><span id="gwname">Airzone gateway</span> <span id="modebadge" class="badge"></span></div>
+  <div class="auth"><span id="authstate"></span> <button id="loginbtn" type="button"></button></div>
+</header>
+<nav id="nav"></nav>
+<main id="main"><p class="muted" id="loading"></p></main>
+<div id="toast" role="status" hidden></div>
+<dialog id="logindlg">
+  <form method="dialog" id="loginform">
+    <h2 id="logintitle"></h2>
+    <p class="muted" id="loginhelp"></p>
+    <label><span id="pwlabel"></span><input type="password" id="pw" autocomplete="current-password" minlength="8" required></label>
+    <div class="row"><button type="submit" id="loginsubmit"></button><button type="button" id="logincancel"></button></div>
+    <p class="error" id="loginerror"></p>
+  </form>
+</dialog>
+<script src="app.js"></script>
+</body>
+</html>
