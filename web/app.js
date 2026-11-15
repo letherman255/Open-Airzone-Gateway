@@ -229,7 +229,7 @@ function updateBox() {
     return box;
   }
   if (state.token) box.append(el("button", { class: "primary", type: "button", onclick: () => { state.confirmInstall = true; refreshUpdateBox(); } }, t("install")), " ");
-  box.append(el("a", { href: i.latest_url, rel: "noopener" }, t("download")));
+  if (/^https?:\/\//i.test(i.latest_url)) box.append(el("a", { href: i.latest_url, rel: "noopener" }, t("download")));
   return box;
 }
 
@@ -256,8 +256,8 @@ async function pollUpdate() {
     for (;;) {
       await new Promise((r) => setTimeout(r, 2000));
       let info = null;
-      try { info = (await api("GET", "info")).data; } catch { if (restarted) continue; }
-      if (!info) { if (restarted) continue; else break; }
+      try { info = (await api("GET", "info")).data; } catch { info = null; }
+      if (!info) { restarted = true; state.info.update_state = "restarting"; refreshUpdateBox(); continue; }  // no answer: the gateway is rebooting
       const u = info.update_state || "";
       if (restarted && u !== "restarting") { location.reload(); return; }
       state.info = info;
