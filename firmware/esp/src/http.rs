@@ -7,11 +7,12 @@ use std::time::Duration;
 use airzone_core::api::{handle, ApiRequest};
 use airzone_core::gateway::Action;
 use airzone_core::ha::{js, states, HaConfig};
+use airzone_core::update::{check_image, MAX_IMAGE, MIN_IMAGE};
 use anyhow::Result;
 use esp_idf_svc::http::server::ws::EspHttpWsDetachedSender;
 use esp_idf_svc::http::server::{Configuration, EspHttpServer};
 use esp_idf_svc::http::Method;
-use esp_idf_svc::io::{Read, Write};
+use esp_idf_svc::io::Write;
 use esp_idf_svc::sys;
 use esp_idf_svc::ws::FrameType;
 use airzone_core::ws::{live_messages, WsCursor};
@@ -22,8 +23,6 @@ const INDEX: &str = include_str!("../../../web/index.html");
 const APP: &str = include_str!("../../../web/app.js");
 const STYLE: &str = include_str!("../../../web/style.css");
 const MAX_BODY: usize = 16 * 1024;
-const MIN_IMAGE: usize = 64 * 1024;
-const MAX_IMAGE: usize = 4 * 1024 * 1024;
 
 /// WebSocket counters for remote diagnosis (reported on the frame stream).
 pub static WS_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -39,7 +38,7 @@ pub fn random32() -> [u8; 32] {
 }
 
 /// Copy the live bus view into the gateway state, then run the API.
-fn api_call(shared: &Shared, req: ApiRequest) -> airzone_core::api::ApiResponse {
+fn api_call(shared: &Arc<Shared>, req: ApiRequest) -> airzone_core::api::ApiResponse {
     let mut gw = shared.gw.lock().unwrap();
     // listen mode: copy the listener's view (the master engine keeps gw up to date itself)
     if !gw.master_active() || !gw.info.master_running {
@@ -61,6 +60,7 @@ fn api_call(shared: &Shared, req: ApiRequest) -> airzone_core::api::ApiResponse 
             }
             Action::Restart => crate::restart_later(),
             Action::Rediscover => shared.rediscover.store(true, std::sync::atomic::Ordering::SeqCst),
+            Action::InstallUpdate { version, url } => crate::installer::start(shared.clone(), version, url),
         }
     }
     resp
@@ -97,17 +97,27 @@ pub fn start(shared: Arc<Shared>, ha: HaConfig) -> Result<EspHttpServer<'static>
         let shared = shared.clone();
         server.fn_handler("/api/v1/ota", Method::Post, move |mut req| -> Result<()> {
             let bearer = header_bearer(req.header("Authorization"));
-            let ok = bearer.is_some_and(|t| shared.gw.lock().unwrap().auth.bearer_ok(&t, crate::now_ms()));
+            let (ok, installing) = {
+                let mut gw = shared.gw.lock().unwrap();
+                let st = gw.info.update_state.as_str();
+                let busy = st.starts_with("downloading") || st == "installing" || st == "restarting";
+                (bearer.is_some_and(|t| gw.auth.bearer_ok(&t, crate::now_ms())), busy)
+            };
             if !ok {
                 req.into_status_response(401)?.write_all(br#"{"error":"authentication required"}"#)?;
                 return Ok(());
             }
-            // a missing / tiny size would make esp_ota_begin erase the whole rollback slot: refuse first
-            let size: usize = req.header("Content-Length").and_then(|v| v.parse().ok()).unwrap_or(0);
-            if !(MIN_IMAGE..=MAX_IMAGE).contains(&size) {
-                req.into_status_response(411)?.write_all(br#"{"error":"Content-Length of a firmware image required"}"#)?;
+            // the one-click installer is writing the same OTA slot
+            if installing {
+                req.into_status_response(409)?.write_all(br#"{"error":"update already in progress"}"#)?;
                 return Ok(());
             }
+            // a missing / tiny size would make esp_ota_begin erase the whole rollback slot: refuse first
+            let size: Option<usize> = req.header("Content-Length").and_then(|v| v.parse().ok());
+            let Some(size) = size.filter(|s| (MIN_IMAGE..=MAX_IMAGE).contains(s)) else {
+                req.into_status_response(411)?.write_all(br#"{"error":"Content-Length of a firmware image required"}"#)?;
+                return Ok(());
+            };
             let mut head = vec![0u8; 4096];
             let mut got = 0;
             while got < head.len() {
@@ -117,8 +127,8 @@ pub fn start(shared: Arc<Shared>, ha: HaConfig) -> Result<EspHttpServer<'static>
                 }
                 got += n;
             }
-            if got < head.len() || head[0] != 0xE9 {
-                req.into_status_response(400)?.write_all(br#"{"error":"not an ESP app image"}"#)?;
+            if let Err(e) = check_image(Some(size), head[0]).and_then(|()| if got < head.len() { Err("body too short") } else { Ok(()) }) {
+                req.into_status_response(400)?.write_all(format!(r#"{{"error":{}}}"#, js(e)).as_bytes())?;
                 return Ok(());
             }
             let mut offset = 0usize;
@@ -133,6 +143,10 @@ pub fn start(shared: Arc<Shared>, ha: HaConfig) -> Result<EspHttpServer<'static>
             });
             match res {
                 Ok(()) => {
+                    // an uploaded image is confirmed by the uploader, never by itself
+                    if let Err(e) = shared.store.lock().unwrap().set_self_update(false) {
+                        log::error!("self_update flag not cleared: {e}");
+                    }
                     req.into_ok_response()?.write_all(br#"{"updated":true,"restarting":true}"#)?;
                     crate::restart_later();
                 }

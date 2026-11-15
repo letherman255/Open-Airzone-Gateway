@@ -1,8 +1,9 @@
 //! Once a day: fetch the release manifest (settings `update_manifest`) and offer a newer version in
-//! /api/v1/info, the page and the Home Assistant update entity. Never installs anything by itself.
+//! /api/v1/info, the page and the Home Assistant update entity. Never installs anything by itself
+//! (installing is `installer`, started from the API only).
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use airzone_core::update::{newer, parse_manifest};
 use anyhow::Result;
@@ -40,28 +41,71 @@ fn fetch(url: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
-pub fn spawn(shared: Arc<Shared>, url: String) -> Result<()> {
-    if url.is_empty() {
-        return Ok(());
-    }
-    std::thread::Builder::new().name("update".into()).stack_size(10 * 1024).spawn(move || loop {
-        // first check a few minutes after boot, then once a day
-        std::thread::sleep(Duration::from_secs(300));
-        match fetch(&url) {
-            Ok(text) => match parse_manifest(&text, &url) {
-                Some(u) if newer(crate::VERSION, &u.version) => {
-                    log::info!("update available: {}", u.version);
-                    let mut gw = shared.gw.lock().unwrap();
-                    gw.info.latest_version = Some(u.version.clone());
-                    gw.info.latest_url = Some(u.url);
-                    gw.push_event("update", &format!("firmware {} available", u.version));
-                }
-                Some(_) => log::info!("firmware up to date"),
-                None => log::warn!("update manifest unreadable"),
-            },
-            Err(e) => log::warn!("update check failed: {e}"),
+/// Always running: the manifest URL is read from the live settings every minute, so turning the check on
+/// or changing the URL takes effect without a restart. A changed URL is checked at once; otherwise the
+/// first check is 5 min after boot, then once a day. An empty URL means idle and withdraws any offer.
+pub fn spawn(shared: Arc<Shared>) -> Result<()> {
+    std::thread::Builder::new().name("update".into()).stack_size(10 * 1024).spawn(move || {
+        let mut seen = shared.gw.lock().unwrap().settings.update_manifest.clone();
+        let mut last_check: Option<Instant> = None;
+        loop {
+            std::thread::sleep(Duration::from_secs(60));
+            let url = shared.gw.lock().unwrap().settings.update_manifest.clone();
+            let changed = url != seen;
+            seen = url.clone();
+            if changed {
+                clear_offer(&shared);
+            }
+            if url.is_empty() {
+                last_check = None;
+                continue;
+            }
+            let due = match last_check {
+                _ if changed => true,
+                None => crate::now_ms() >= FIRST_CHECK_MS,
+                Some(t) => t.elapsed() >= Duration::from_secs(24 * 3600),
+            };
+            if !due {
+                continue;
+            }
+            last_check = Some(Instant::now());
+            check(&shared, &url);
         }
-        std::thread::sleep(Duration::from_secs(24 * 3600 - 300));
     })?;
     Ok(())
+}
+
+const FIRST_CHECK_MS: u64 = 300_000;
+
+fn clear_offer(shared: &Shared) {
+    let mut gw = shared.gw.lock().unwrap();
+    gw.info.latest_version = None;
+    gw.info.latest_url = None;
+}
+
+fn check(shared: &Shared, url: &str) {
+    // network I/O without any lock held
+    match fetch(url) {
+        Ok(text) => match parse_manifest(&text, url) {
+            Some(u) if newer(crate::VERSION, &u.version) => {
+                log::info!("update available: {}", u.version);
+                let mut gw = shared.gw.lock().unwrap();
+                // the setting may have changed during the fetch: an answer for an old URL is dropped
+                if gw.settings.update_manifest != url {
+                    return;
+                }
+                if gw.info.latest_version.as_deref() != Some(u.version.as_str()) {
+                    gw.push_event("update", &format!("firmware {} available", u.version));
+                }
+                gw.info.latest_version = Some(u.version.clone());
+                gw.info.latest_url = Some(u.url);
+            }
+            Some(_) => {
+                log::info!("firmware up to date");
+                clear_offer(shared);
+            }
+            None => log::warn!("update manifest unreadable"),
+        },
+        Err(e) => log::warn!("update check failed: {e}"),
+    }
 }

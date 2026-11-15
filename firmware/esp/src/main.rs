@@ -10,6 +10,7 @@ mod board;
 mod button;
 mod clock;
 mod http;
+mod installer;
 #[cfg(feature = "master")]
 mod master_run;
 mod mqtt;
@@ -251,6 +252,9 @@ fn run() -> Result<()> {
 
     let nvs = EspDefaultNvsPartition::take()?;
     let store = Arc::new(Mutex::new(nvs_store::Store::open(nvs.clone())?));
+    if let Err(e) = ota::self_confirm(store.clone()) {
+        log::error!("self-confirm not started: {e}");
+    }
     let settings = store.lock().unwrap().load(&build_defaults());
     let want_master = cfg!(feature = "master") && settings.mode == Mode::Master;
     log::info!("settings: mode={:?} (master built in: {}) mqtt={} wifi={}", settings.mode, cfg!(feature = "master"), !settings.mqtt_url.is_empty(), !settings.wifi_ssid.is_empty());
@@ -365,7 +369,7 @@ fn run() -> Result<()> {
             }
         })?;
     }
-    updater::spawn(shared.clone(), settings.update_manifest.clone())?;
+    updater::spawn(shared.clone())?;
     stream::send(&to_stream, format!("# gateway id={gateway_id} mode={mode_word} mqtt={}\n", if settings.mqtt_url.is_empty() { "disabled" } else { "configured" }));
 
     let mut time_reported = false;

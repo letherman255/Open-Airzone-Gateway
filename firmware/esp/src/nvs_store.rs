@@ -5,6 +5,8 @@ use anyhow::Result;
 use esp_idf_svc::nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault};
 
 const NAMESPACE: &str = "azgw";
+/// u8 flag (1 = set), not a settings key: survives settings saves and network resets.
+const SELF_UPDATE: &str = "self_update";
 
 pub struct Store {
     nvs: EspNvs<NvsDefault>,
@@ -30,6 +32,20 @@ impl Store {
     pub fn save(&self, s: &Settings) -> Result<()> {
         for (k, v) in s.to_kv() {
             self.nvs.set_str(k, &v)?;
+        }
+        Ok(())
+    }
+
+    /// Set while an image installed by the gateway itself (one-click update) waits for self-confirmation.
+    pub fn self_update(&self) -> bool {
+        matches!(self.nvs.get_u8(SELF_UPDATE), Ok(Some(1)))
+    }
+
+    pub fn set_self_update(&self, on: bool) -> Result<()> {
+        if on {
+            self.nvs.set_u8(SELF_UPDATE, 1)?;
+        } else {
+            self.nvs.remove(SELF_UPDATE)?;
         }
         Ok(())
     }

@@ -3,14 +3,19 @@
 //! A new image boots "pending verify". It is confirmed only by a successful authenticated probe
 //! (`AZOTA1 <token> 0`, sent by tools/ota_upload.py after an upload), which proves the OTA path of the
 //! new image works; without it the board resets after OTA_CONFIRM_S and the bootloader rolls back.
+//! An image the gateway downloaded itself (one-click update, `installer`) confirms itself instead once it
+//! has Wi-Fi (`self_confirm`).
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
 use esp_idf_svc::sys;
+
+use crate::nvs_store::Store;
 
 pub const OTA_PORT: u16 = 7001;
 pub const OTA_CONFIRM_S: u64 = 180;
@@ -39,6 +44,53 @@ pub fn start_guard() -> Result<()> {
         }
     })?;
     Ok(())
+}
+
+/// Healthy time before an image installed by the gateway itself confirms itself.
+pub const SELF_CONFIRM_S: u64 = 60;
+
+/// One-click updates: an image the gateway installed itself (NVS `self_update`) confirms itself once
+/// Wi-Fi has an IP and SELF_CONFIRM_S have passed since boot. Without Wi-Fi it never confirms, so the
+/// guard resets after OTA_CONFIRM_S and the bootloader rolls back. A flag left on a confirmed image
+/// (rollback, or an install that never booted) is cleared.
+pub fn self_confirm(store: Arc<Mutex<Store>>) -> Result<()> {
+    if !store.lock().unwrap().self_update() {
+        return Ok(());
+    }
+    if !pending_verify() {
+        log::info!("self_update flag on a confirmed image: cleared");
+        store.lock().unwrap().set_self_update(false)?;
+        return Ok(());
+    }
+    log::warn!("self-installed image: confirms itself after {SELF_CONFIRM_S} s with Wi-Fi");
+    std::thread::Builder::new().name("self-confirm".into()).stack_size(4 * 1024).spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(2));
+        if crate::now_ms() / 1000 < SELF_CONFIRM_S || !wifi_has_ip() {
+            continue;
+        }
+        match confirm() {
+            Ok(_) => {
+                if let Err(e) = store.lock().unwrap().set_self_update(false) {
+                    log::error!("self_update flag not cleared: {e}");
+                }
+                log::info!("update confirmed");
+            }
+            Err(e) => log::error!("self-confirm failed: {e}"),
+        }
+        return;
+    })?;
+    Ok(())
+}
+
+fn wifi_has_ip() -> bool {
+    unsafe {
+        let netif = sys::esp_netif_get_handle_from_ifkey(c"WIFI_STA_DEF".as_ptr());
+        if netif.is_null() || !sys::esp_netif_is_netif_up(netif) {
+            return false;
+        }
+        let mut ip: sys::esp_netif_ip_info_t = core::mem::zeroed();
+        sys::esp_netif_get_ip_info(netif, &mut ip) == sys::ESP_OK && ip.ip.addr != 0
+    }
 }
 
 fn ct_eq(a: &[u8], b: &[u8]) -> bool {
