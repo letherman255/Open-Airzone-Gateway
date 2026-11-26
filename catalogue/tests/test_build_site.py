@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -44,9 +45,13 @@ def _args(tmp_path, tag):
     for n in ("boot", "ptab", "app"):
         (tmp_path / f"{n}.bin").write_bytes(b"\xe9" * 4096)
     (tmp_path / "page.html").write_text("<p>{{VERSION}}</p>")
+    # the real Cargo.toml pinned at 0.2.0: the test must not break at each version bump
+    with open(os.path.join(REPO, "firmware", "esp", "Cargo.toml"), encoding="utf-8") as f:
+        cargo = re.sub(r'(?m)^version = "[^"]*"', 'version = "0.2.0"', f.read(), count=1)
+    (tmp_path / "Cargo.toml").write_text(cargo, encoding="utf-8")
     return [
         "--tag", tag,
-        "--cargo", os.path.join(REPO, "firmware", "esp", "Cargo.toml"),
+        "--cargo", str(tmp_path / "Cargo.toml"),
         "--partitions", os.path.join(REPO, "firmware", "esp", "partitions.csv"),
         "--bootloader", str(tmp_path / "boot.bin"),
         "--partition-table", str(tmp_path / "ptab.bin"),
