@@ -179,7 +179,13 @@ pub fn run(shared: Arc<Shared>, s: Settings, ha: HaConfig) -> Result<()> {
                     m.topic.hash(&mut h);
                 }
                 if !topo.centrals.is_empty() {
-                    shared.with_registry(|reg| discovery_each(&ha, &topo, reg, &mut |m| m.topic.hash(&mut h)));
+                    // payloads too: the climate setpoint range follows the heat / cool mode
+                    shared.with_registry(|reg| {
+                        discovery_each(&ha, &topo, reg, &mut |m| {
+                            m.topic.hash(&mut h);
+                            m.payload.hash(&mut h);
+                        })
+                    });
                 }
                 h.finish()
             };
