@@ -265,6 +265,30 @@ fn entity_as(c: &HaConfig, central: &Central, p: &Param, d: Dev, component: &'st
     }
 }
 
+/// Lowest heat setpoint and highest cool setpoint of an Airzone zone: fixed by the central.
+pub const HEAT_SETPOINT_MIN: f32 = 15.0;
+pub const COOL_SETPOINT_MAX: f32 = 30.0;
+
+/// Setpoint range of the zone for the current (global) mode. Zone +1 is a copy of the system minimum
+/// **cool** setpoint (0x0019) and zone +2 of the maximum **heat** setpoint (0x001A): each only bounds its
+/// own mode. Using +1 as the minimum in heat made Home Assistant refuse every heat setpoint below the
+/// cool minimum (19 °C), so night and Tempo setbacks were never applied (2026-11-26).
+pub fn setpoint_limits(z: &Zone, addr: u8, reg: &Registry) -> (f32, f32) {
+    let lim = |id: &str| {
+        param_by(id).and_then(|p| match value_of(p, Dev::Zone(z), addr, reg) {
+            Value::Num(x) if (5.0..=35.0).contains(&x) => Some(x),
+            _ => None,
+        })
+    };
+    let mode = reg.get(addr, (z.n as u16) << 8).filter(|w| *w != 0xFFFF).map(|w| (w >> 8) & 0xF);
+    match mode {
+        // cool, dry
+        Some(9 | 6) => (lim("zone.setpoint_min").unwrap_or(HEAT_SETPOINT_MIN).min(COOL_SETPOINT_MAX), COOL_SETPOINT_MAX),
+        // heat, fan, stop, unknown
+        _ => (HEAT_SETPOINT_MIN, lim("zone.setpoint_max").unwrap_or(COOL_SETPOINT_MAX).max(HEAT_SETPOINT_MIN)),
+    }
+}
+
 fn climate(c: &HaConfig, central: &Central, z: &Zone, reg: &Registry) -> Message {
     let addr = central.addr;
     let uid = format!("{}_{}_z{}_climate", c.gateway_id, addr, z.n);
@@ -288,13 +312,8 @@ fn climate(c: &HaConfig, central: &Central, z: &Zone, reg: &Registry) -> Message
         r#""current_humidity_template":"{{ value_json.humidity }}""#.into(),
         r#""temperature_unit":"C","temp_step":0.5,"precision":0.1"#.into(),
     ];
-    for (id, field) in [("zone.setpoint_min", "min_temp"), ("zone.setpoint_max", "max_temp")] {
-        if let Some(p) = param_by(id) {
-            if let Value::Num(x) = value_of(p, Dev::Zone(z), addr, reg) {
-                f.push(format!(r#""{field}":{}"#, num(x)));
-            }
-        }
-    }
+    let (min, max) = setpoint_limits(z, addr, reg);
+    f.push(format!(r#""min_temp":{},"max_temp":{}"#, num(min), num(max)));
     if c.commands {
         f.push(format!(r#""mode_command_topic":{}"#, js(&format!("{b}/set/hvac_mode"))));
         f.push(format!(r#""temperature_command_topic":{}"#, js(&format!("{b}/set/setpoint"))));

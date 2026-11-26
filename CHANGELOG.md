@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html): MQTT entity ids change only in a major version.
 
+## [0.2.1] - 2026-11-26
+
+### Fixed
+
+- Climate setpoint range follows the mode. In heat the minimum is 15 °C and the maximum the system maximum heat
+  setpoint (0x001A); in cool / dry the minimum is the system minimum cool setpoint (0x0019) and the maximum
+  30 °C. Before, the minimum cool setpoint (19 °C by default) was announced as the minimum in every mode, so
+  Home Assistant refused every heat setpoint below it (night and Tempo setbacks).
+- Discovery is published again when a config changes, not only when entities appear or disappear (the
+  setpoint range changes with the mode).
+
 ## [0.2.0] - 2026-11-15
 
 First release with prebuilt firmware: no development tools needed to install the gateway.
@@ -33,4 +44,5 @@ First release with prebuilt firmware: no development tools needed to install the
 - Image signing: release images are not signed. Network updates still need the admin password or an API
   token, and releases publish SHA-256 checksums.
 
+[0.2.1]: https://github.com/letherman255/Open-Airzone-Gateway/releases/tag/v0.2.1
 [0.2.0]: https://github.com/letherman255/Open-Airzone-Gateway/releases/tag/v0.2.0
